@@ -820,6 +820,7 @@ subroutine calc_stability
 
   ! Calculate properties shared by all tiles:
   ! Absolute wind speed difference, and virtual potential temperature atmosphere
+  !$acc parallel loop collapse(2) default(present) async(1)
   do j=2,j1
       do i=2,i1
           du = 0.5*(u0(i,j,1) + u0(i+1,j,1)) + cu
@@ -829,6 +830,9 @@ subroutine calc_stability
           thv_1(i,j) = thl0(i,j,1)  * (1.+(rv/rd-1.)*qt0(i,j,1))
       end do
   end do
+
+  !$acc update host(du_tot, thv_1)
+  !$acc wait(1)
 
   do ilu=1, nlu
     call calc_obuk_ustar_ra(tile(ilu))
@@ -846,6 +850,7 @@ subroutine calc_obuk_ustar_ra(tile)
     integer :: i, j
     real :: thvs
 
+    !$acc parallel loop collapse(2) default(present) async(1)
     do j=2,j1
         do i=2,i1
             !if (tile%frac(i,j) > 0) then
@@ -853,9 +858,11 @@ subroutine calc_obuk_ustar_ra(tile)
                 thvs = tile%thlskin(i,j) * (1.+(rv/rd-1.)*tile%qtskin(i,j))
                 tile%db(i,j) = grav/thvs * (thv_1(i,j) - thvs)
 
+#ifndef _OPENACC
                 if (tile%z0m(i,j) < 1e-6 .or. tile%z0h(i,j) < 1e-6) then
                    write (*,*) 'z0 warning:', tile%lushort, i, j, tile%z0m(i,j), tile%z0h(i,j)
                 end if
+#endif
 
                 ! Iteratively find Obukhov length
                 tile%obuk(i,j) = calc_obuk_dirichlet( &
@@ -864,6 +871,7 @@ subroutine calc_obuk_ustar_ra(tile)
         end do
     end do
 
+    !$acc parallel loop collapse(2) default(present) async(1)
     do j=2,j1
         do i=2,i1
             !if (tile%frac(i,j) > 0) then
@@ -873,6 +881,9 @@ subroutine calc_obuk_ustar_ra(tile)
             !end if
         end do
     end do
+
+    !$acc wait(1)
+    !$acc update host(tile%db,tile%ustar,tile%ra)
 
 end subroutine calc_obuk_ustar_ra
 
@@ -2665,6 +2676,7 @@ function calc_obuk_dirichlet(L_in, du, db_in, zsl, z0m, z0h) result(res)
 
     integer :: m, n, nlim
     real :: res, L, db, Lmax, L0, Lstart, Lend, fx0, fxdif
+    !$acc routine seq
 
     m = 0
     nlim = 10
@@ -2737,8 +2749,10 @@ function calc_obuk_dirichlet(L_in, du, db_in, zsl, z0m, z0h) result(res)
     end do
 
     if (m > 1) then
+#ifndef _OPENACC
         print*,'WARNING: convergence has not been reached in Obukhov length iteration'
         print*,'Input: ', L_in, du, db_in, zsl, z0m, z0h
+#endif
         !stop
         res = 1e-9
         return

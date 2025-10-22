@@ -263,9 +263,11 @@ program DALES
 !   3.1   Openboundaries
 !-----------------------------------------------------
     if(lopenbc) then
+      call timer_tic('openboundary', 0)
       call openboundary_turb
       call openboundary_ghost
       call openboundary_tend
+      call timer_toc('openboundary')
     endif
 
 !-----------------------------------------------------

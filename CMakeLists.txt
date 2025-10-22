@@ -121,7 +121,9 @@ if( ENABLE_ACC )
 
   # For debug builds, enable accelerator info
   if( ${CMAKE_Fortran_COMPILER_ID} MATCHES PGI|NVHPC )
-    ecbuild_add_fortran_flags( "-Minfo=accel" BUILD DEBUG ) 
+    ecbuild_add_fortran_flags( "-Minfo=accel -gpu=lineinfo -g -traceback" BUILD DEBUG ) 
+    ecbuild_add_fortran_flags( "-Minfo=accel -gpu=lineinfo -g -traceback" BUILD RELEASE )
+    #ecbuild_add_fortran_flags( "-gpu=mem:separate:pinnedalloc" BUILD RELEASE )
   endif()
 
   add_compile_definitions( DALES_GPU )
