@@ -355,6 +355,10 @@ module modbulkmicro3
 
    allocate(precep_l     (2-ih:i1+ih,2-jh:j1+jh) &
            ,precep_i     (2-ih:i1+ih,2-jh:j1+jh) )
+   allocate(precep_hr    (2-ih:i1+ih,2-jh:j1+jh) &
+           ,precep_ci    (2-ih:i1+ih,2-jh:j1+jh) &
+           ,precep_hs    (2-ih:i1+ih,2-jh:j1+jh) &
+           ,precep_hg    (2-ih:i1+ih,2-jh:j1+jh) )
    allocate(statistic_mphys(nmphys,k1)    &
            ,statistic_sv0_fsum(ncols,k1)  &
            ,statistic_sv0_count(ncols,k1) &
@@ -362,6 +366,12 @@ module modbulkmicro3
            ,statistic_svp_fsum(ncols,k1)  &
            ,statistic_svp_csum(ncols,k1)  &
            ,tend_fsum(ntends,k1)          )
+  precep_l = 0.
+  precep_i = 0.
+
+  precep_hr = 0.
+  precep_ci = 0.
+  precep_hs = 0.
 
   ! Zero the summed statistics and tendencies
   if (l_tendencies) then
@@ -386,6 +396,7 @@ module modbulkmicro3
 subroutine exitbulkmicro3
   implicit none
   deallocate(precep_l, precep_i)
+  deallocate(precep_hr, precep_ci, precep_hs, precep_hg)
   deallocate(statistic_mphys)
   deallocate(statistic_sv0_fsum,statistic_sv0_count,statistic_sv0_csum)
   deallocate(statistic_svp_fsum,statistic_svp_csum)
@@ -421,7 +432,7 @@ subroutine bulkmicro3
          ,mphys_col(nmphys, k1)
 
   ! and variables as the surface (k=1) of the column
-  real :: precep_hr,precep_ci,precep_hs,precep_hg
+  ! real :: precep_hr,precep_ci,precep_hs,precep_hg
 
 
   ! check if ccn and clouds were already initialised
@@ -461,6 +472,11 @@ subroutine bulkmicro3
   if (l_statistics) then
     mphys_col = 0.
   endif
+
+  ! Zero temporary tendency fields. These are filled for j=2:j1 in point_processes,
+  ! so initialize to avoid using undefined stack values outside that range.
+  thlp_t = 0.
+  qtp_t  = 0.
 
   ! no need to zero:
   ! thlp_t, qtp_t      : they are set in point_processes
@@ -507,7 +523,8 @@ subroutine bulkmicro3
   ! ------------------------------------------------------------------
     call column_processes(sv0_t(:,:,i,j),svp_t(:,:,i,j)            &
                          ,thlp_t(:,i,j),qtp_t(:,i,j)               &
-                         ,precep_hr,precep_ci,precep_hs,precep_hg  &
+                         ,precep_hr(i,j),precep_ci(i,j)            &
+                         ,precep_hs(i,j),precep_hg(i,j)           &
                          ,tend_col                                 )
 
   ! Remove negative values and non physical low values
@@ -517,8 +534,8 @@ subroutine bulkmicro3
 
   ! Keep track of output
   ! -----------------------------------------------------------------
-    precep_l(i,j) = precep_hr
-    precep_i(i,j) = precep_ci + precep_hs + precep_hg
+    precep_l(i,j) = precep_hr(i,j)
+    precep_i(i,j) = precep_ci(i,j) + precep_hs(i,j) + precep_hg(i,j)
 
     ! Accumulate non-zero tendencies and statistics, and reset to zero.
     ! NOTE BUG: can we have tendencies while all svp() are exactly zero,
@@ -787,7 +804,7 @@ subroutine untranspose_svs(svp_t,thlp_t,qtp_t,k_low,k_high)
   ks = minval(k_low)
   ke = maxval(k_high)
   if (ks.le.ke) then
-    do j=1,j1
+    do j=2,j1
     do i=2,i1 - 1,2 ! careful not to go out-of-array
     do k=ks,ke
       thlp(i+0,j,k) = thlp(i+0,j,k) + thlp_t(k,i+0,j)
