@@ -499,6 +499,11 @@
   ! pre-processed precipitation fields to output in bulkmicrostat3
   real, allocatable ::  precep_l(:,:) & !< liquid surface precipitation (precep_hr)
                        ,precep_i(:,:)   !< frozen surface precipitation (precep_[ci+hs+hg])
+  real, allocatable :: &
+    precep_hr(:,:), &
+    precep_ci(:,:), &
+    precep_hs(:,:), &
+    precep_hg(:,:)
 
   logical :: q_hr_mask,q_hs_mask,q_hg_mask,q_cl_mask,q_ci_mask
 

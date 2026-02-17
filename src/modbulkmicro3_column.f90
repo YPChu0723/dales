@@ -40,7 +40,7 @@ subroutine column_processes(sv0, svp, thlpmcr, qtpmcr, &
   real, intent(inout), dimension(ncols,k1)     :: svp
 
   real, intent(inout), dimension(k1)        :: thlpmcr, qtpmcr
-  real, intent(out)                         :: precep_hr, precep_ci, precep_hs, precep_hg
+  real, intent(inout)                       :: precep_hr, precep_ci, precep_hs, precep_hg
   real, intent(out),   dimension(ntends,k1) :: tend
 
   ! sedimentation
@@ -75,9 +75,9 @@ end subroutine column_processes
 subroutine nucleation3(qt0, qvsl, w0, q_cl, q_clp, n_cl, n_clp, n_cc, statistics,tend)
   use modglobal, only : dzf,k1
   implicit none
-  real, intent(in)    :: qt0(k1), qvsl(k1), w0(k1)
-  real, intent(in)    :: q_cl(k1), n_cl(k1), n_cc(k1)
-  real, intent(inout) :: q_clp(k1), n_clp(k1)
+  real, intent(in)    :: qt0(:), qvsl(:), w0(:)
+  real, intent(in)    :: q_cl(:), n_cl(:), n_cc(:)
+  real, intent(inout) :: q_clp(:), n_clp(:)
   real, intent(out)   :: tend(ntends, k1)
   real, intent(inout) :: statistics(nmphys,k1)
 
@@ -300,9 +300,9 @@ subroutine sedim_rain3(q_hr, n_hr, q_hrp, n_hrp, precep_hr, tend)
   use modglobal, only : k1,kmax,eps1,dzf
   use modfields, only : rhof
   implicit none
-  real, intent(in)     :: q_hr(k1), n_hr(k1)
-  real, intent(inout)  :: q_hrp(k1), n_hrp(k1)
-  real, intent(out)    :: precep_hr
+  real, intent(in)     :: q_hr(:), n_hr(:)
+  real, intent(inout)  :: q_hrp(:), n_hrp(:)
+  real, intent(inout)  :: precep_hr
   real, intent(out)    :: tend(ntends, k1)
 
   integer :: k,jn,n_spl
@@ -464,9 +464,9 @@ subroutine sedim_snow3(q_hs, n_hs, q_hsp, n_hsp, precep_hs, tend)
   use modglobal, only : k1,kmax,dzf
   use modfields, only : rhof
   implicit none
-  real, intent(in)    :: q_hs(k1), n_hs(k1)
-  real, intent(inout) :: q_hsp(k1), n_hsp(k1)
-  real, intent(out)   :: precep_hs
+  real, intent(in)    :: q_hs(:), n_hs(:)
+  real, intent(inout) :: q_hsp(:), n_hsp(:)
+  real, intent(inout) :: precep_hs
   real, intent(out)   :: tend(ntends, k1)
 
   integer :: k,jn,n_spl
@@ -555,9 +555,9 @@ subroutine sedim_graupel3(q_hg, n_hg, q_hgp, n_hgp, precep_hg, tend)
   use modglobal, only : k1,kmax,dzf
   use modfields, only : rhof
   implicit none
-  real, intent(in)    :: q_hg(k1), n_hg(k1)
-  real, intent(inout) :: q_hgp(k1), n_hgp(k1)
-  real, intent(out)   :: precep_hg
+  real, intent(in)    :: q_hg(:), n_hg(:)
+  real, intent(inout) :: q_hgp(:), n_hgp(:)
+  real, intent(inout) :: precep_hg
   real, intent(out)   :: tend(ntends, k1)
 
   integer :: k,jn,n_spl
@@ -645,9 +645,9 @@ subroutine sedim_ice3(q_ci, n_ci, q_cip, n_cip, precep_ci, tend)
   use modglobal, only : k1,kmax,dzf
   use modfields, only : rhof
   implicit none
-  real, intent(in)    :: q_ci(k1), n_ci(k1)
-  real, intent(inout) :: q_cip(k1), n_cip(k1)
-  real, intent(out)   :: precep_ci
+  real, intent(in)    :: q_ci(:), n_ci(:)
+  real, intent(inout) :: q_cip(:), n_cip(:)
+  real, intent(inout) :: precep_ci
   real, intent(out)   :: tend(ntends, k1)
 
   integer :: k,jn,n_spl
@@ -737,9 +737,9 @@ subroutine sedim_cl3(q_cl, n_cl, q_clp, n_clp, n_ccp, qtpmcr, thlpmcr, tend)
   use modglobal, only : k1,kmax,dzf,rlv,cp
   use modfields, only : rhof, exnf
   implicit none
-  real, intent(in)    :: q_cl(k1), n_cl(k1)
-  real, intent(inout) :: q_clp(k1), n_clp(k1), n_ccp(k1)
-  real, intent(inout) :: qtpmcr(k1), thlpmcr(k1)
+  real, intent(in)    :: q_cl(:), n_cl(:)
+  real, intent(inout) :: q_clp(:), n_clp(:), n_ccp(:)
+  real, intent(inout) :: qtpmcr(:), thlpmcr(:)
   real, intent(out)   :: tend(ntends, k1)
 
   integer :: k, jn, n_spl
