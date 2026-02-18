@@ -214,6 +214,8 @@ contains
       call saturation_adjustment(qt0, thl0, presf, exnf, ql0, opt_stream=1)
 #endif
 
+      call calc_dry_tmp ! tmp0 is used by bulk microphysics point processes
+
 
       call diagfld
 

@@ -453,11 +453,11 @@ subroutine icenucle3
   ! calculate supersaturation with respect to ice
   if (l_sb_inuc_sat) then  ! l_sb_inuc_sat
     ! calculating supersaturation of water vapour only
-    ssice = (qt0-q_cl)/qvsi -1.0
+    ssice = (qt0-q_cl)/max(qvsi, tiny(1.0)) -1.0
     ! ssice = max(0.0, (qt0-q_cl)/qvsi -1.0)
   else  ! l_sb_inuc_sat
     ! ie. cloud ice water is also included supersaturation
-    ssice = (qt0-q_cl+q_ci)/qvsi -1.0
+    ssice = (qt0-q_cl+q_ci)/max(qvsi, tiny(1.0)) -1.0
     ! ssice = max(0.0, (qt0-q_cl+q_ci)/qvsi -1.0)
   endif ! l_sb_inuc_sat
 
@@ -654,10 +654,10 @@ subroutine deposit_ice3
          ,nrex_ci   ! reynolds number
 
   q_avail = qt0 - q_cl - qvsi ! NOTE: q_avail < 0 sublimation instead of deposition
-  Si = q_avail/qvsi
+  Si = q_avail/max(qvsi, tiny(1.0))
 
   ! calculating G_iv
-  esi = qvsi*presf_k/(rd/rv+(1.0-rd/rv)*qvsi)
+  esi = max(qvsi, tiny(1.0))*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, tiny(1.0)))
   G = (rv * tmp0) / (Dv*esi) + rlvi/(Kt*tmp0)*(rlvi/(rv*tmp0) -1.)
   G = 1./G
 
@@ -717,10 +717,10 @@ subroutine deposit_snow3
          ,nrex_hs   ! reynolds number
 
   q_avail = qt0 - q_cl - qvsi ! NOTE: q_avail < 0 sublimation instead of deposition
-  Si = q_avail/qvsi
+  Si = q_avail/max(qvsi, tiny(1.0))
 
   ! calculating G_iv
-  esi = qvsi*presf_k/(rd/rv+(1.0-rd/rv)*qvsi)
+  esi = max(qvsi, tiny(1.0))*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, tiny(1.0)))
   G = (rv * tmp0) / (Dv*esi) + rlvi/(Kt*tmp0)*(rlvi/(rv*tmp0) -1.)
   G = 1./G
 
@@ -779,10 +779,10 @@ subroutine deposit_graupel3
          ,nrex_hg   ! reynolds number
 
   q_avail = qt0 - q_cl - qvsi ! NOTE: q_avail < 0 sublimation instead of deposition
-  Si = q_avail/qvsi
+  Si = q_avail/max(qvsi, tiny(1.0))
 
   ! calculating G_iv
-  esi = qvsi*presf_k/(rd/rv+(1.0-rd/rv)*qvsi)
+  esi = max(qvsi, tiny(1.0))*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, tiny(1.0)))
   G = (rv * tmp0) / (Dv*esi) + rlvi/(Kt*tmp0)*(rlvi/(rv*tmp0) -1.)
   G = 1./G
 
