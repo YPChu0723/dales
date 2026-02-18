@@ -107,6 +107,10 @@ subroutine initbulkmicrostat3
     idtav = int(dtav / tres, kind=kind(idtav))
     itimeav = int(timeav / tres, kind=kind(itimeav))
 
+    if (idtav <= 0 .or. itimeav <= 0) then
+      call finish(routine, 'dtav/timeav produce non-positive timestep counters (NAMBULKMICROSTAT)')
+    end if
+
     tnext      = idtav   + btime
     tnextwrite = itimeav + btime
     nsamples = int(itimeav / idtav)
@@ -126,11 +130,18 @@ subroutine initbulkmicrostat3
     !end if
 
     if (lnetcdf) then
-      idtav      = idtav_prof
-      itimeav    = itimeav_prof
+      ! initbulkmicrostat3 is called before initgenstat in startup.
+      ! Only adopt genstat timing once those counters are valid.
+      if (idtav_prof > 0 .and. itimeav_prof > 0) then
+        idtav      = idtav_prof
+        itimeav    = itimeav_prof
+      end if
       tnext      = idtav   + btime
       tnextwrite = itimeav + btime
       nsamples = int(itimeav / idtav)
+      if (nsamples <= 0) then
+        call finish(routine, 'timeav must be >= dtav for microphysics statistics output')
+      end if
       if (myid==0) then
 
         ! statisitcs output
@@ -413,10 +424,16 @@ subroutine initbulkmicrostat3
       call D_MPI_ALLREDUCE(statistic_sv0_count,size(statistic_sv0_count),MPI_SUM,comm3d,mpierr)
       call D_MPI_ALLREDUCE(statistic_sv0_fsum ,size(statistic_sv0_fsum ),MPI_SUM,comm3d,mpierr)
       call D_MPI_ALLREDUCE(statistic_sv0_csum ,size(statistic_sv0_csum ),MPI_SUM,comm3d,mpierr)
-      call D_MPI_ALLREDUCE(statistic_svp_fsum ,size(statistic_sv0_fsum ),MPI_SUM,comm3d,mpierr)
-      call D_MPI_ALLREDUCE(statistic_svp_csum ,size(statistic_sv0_csum ),MPI_SUM,comm3d,mpierr)
+      call D_MPI_ALLREDUCE(statistic_svp_fsum ,size(statistic_svp_fsum ),MPI_SUM,comm3d,mpierr)
+      call D_MPI_ALLREDUCE(statistic_svp_csum ,size(statistic_svp_csum ),MPI_SUM,comm3d,mpierr)
 
       ! normalize
+      if (nsamples <= 0) then
+        call finish(routine, 'nsamples <= 0 before normalization in writebulkmicrostat3')
+      end if
+      if (ijtot <= 0.) then
+        call finish(routine, 'ijtot <= 0 before normalization in writebulkmicrostat3')
+      end if
       statistic_sv0_fsum = statistic_sv0_fsum / ijtot / nsamples
       statistic_svp_fsum = statistic_svp_fsum / ijtot / nsamples
       where(statistic_sv0_count .gt. 0)
