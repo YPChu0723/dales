@@ -67,7 +67,6 @@ subroutine initbulkmicrostat3
     use modglobal, only  : ifnamopt, fname_options, cexpnr, &
          dtav_glob, timeav_glob, ladaptive, dtmax,btime,tres,checknamelisterror,kmax
     use modstat_nc, only : lnetcdf,open_nc,define_nc,ncinfo,nctiminfo,writestat_dims_nc
-    use modgenstat, only : idtav_prof=>idtav, itimeav_prof=>itimeav
     use modmicrodata3
 
     implicit none
@@ -94,11 +93,22 @@ subroutine initbulkmicrostat3
     idtav = int(dtav / tres, kind=kind(idtav))
     itimeav = int(timeav / tres, kind=kind(itimeav))
 
+    if (.not. lmicrostat) return
+
+    if (idtav <= 0_longint) then
+      call finish(routine, 'dtav is too small for the current timestep (idtav <= 0)')
+    end if
+    if (itimeav <= 0_longint) then
+      call finish(routine, 'timeav is too small for the current timestep (itimeav <= 0)')
+    end if
+
     tnext      = idtav   + btime
     tnextwrite = itimeav + btime
     nsamples = int(itimeav / idtav)
+    if (nsamples <= 0) then
+      call finish(routine, 'invalid sampling setup: nsamples <= 0')
+    end if
 
-    if (.not. lmicrostat) return
     if (abs(timeav/dtav - nsamples) > 1e-4) then
       call finish(routine, 'timeav must be an integer multiple of dtav (NAMBULKMICROSTAT)')
     end if
@@ -113,11 +123,6 @@ subroutine initbulkmicrostat3
     !end if
 
     if (lnetcdf) then
-      idtav      = idtav_prof
-      itimeav    = itimeav_prof
-      tnext      = idtav   + btime
-      tnextwrite = itimeav + btime
-      nsamples = int(itimeav / idtav)
       if (myid==0) then
 
         ! statisitcs output
@@ -404,23 +409,23 @@ subroutine initbulkmicrostat3
       call D_MPI_ALLREDUCE(statistic_svp_csum ,size(statistic_sv0_csum ),MPI_SUM,comm3d,mpierr)
 
       ! normalize
-      statistic_sv0_fsum = statistic_sv0_fsum / ijtot / nsamples
-      statistic_svp_fsum = statistic_svp_fsum / ijtot / nsamples
+      statistic_sv0_fsum = statistic_sv0_fsum / ijtot / max(nsamples, 1)
+      statistic_svp_fsum = statistic_svp_fsum / ijtot / max(nsamples, 1)
       where(statistic_sv0_count .gt. 0)
-        statistic_sv0_csum = statistic_sv0_csum / statistic_sv0_count / nsamples
-        statistic_svp_csum = statistic_svp_csum / statistic_sv0_count / nsamples
+        statistic_sv0_csum = statistic_sv0_csum / statistic_sv0_count / max(nsamples, 1)
+        statistic_svp_csum = statistic_svp_csum / statistic_sv0_count / max(nsamples, 1)
       elsewhere
         statistic_sv0_csum = 0.
         statistic_svp_csum = 0.
       endwhere
-      statistic_sv0_count = statistic_sv0_count / ijtot / nsamples
+      statistic_sv0_count = statistic_sv0_count / ijtot / max(nsamples, 1)
     endif
 
     if (l_tendencies) then
       call D_MPI_ALLREDUCE(tend_fsum, size(tend_fsum), MPI_SUM, comm3d, mpierr)
 
       ! normalize
-      tend_fsum = tend_fsum / ijtot / nsamples
+      tend_fsum = tend_fsum / ijtot / max(nsamples, 1)
     endif
 
     if (myid == 0) then

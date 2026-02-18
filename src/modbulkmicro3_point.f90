@@ -453,11 +453,11 @@ subroutine icenucle3
   ! calculate supersaturation with respect to ice
   if (l_sb_inuc_sat) then  ! l_sb_inuc_sat
     ! calculating supersaturation of water vapour only
-    ssice = (qt0-q_cl)/max(qvsi, tiny(1.0)) -1.0
+    ssice = (qt0-q_cl)/max(qvsi, eps0) -1.0
     ! ssice = max(0.0, (qt0-q_cl)/qvsi -1.0)
   else  ! l_sb_inuc_sat
     ! ie. cloud ice water is also included supersaturation
-    ssice = (qt0-q_cl+q_ci)/max(qvsi, tiny(1.0)) -1.0
+    ssice = (qt0-q_cl+q_ci)/max(qvsi, eps0) -1.0
     ! ssice = max(0.0, (qt0-q_cl+q_ci)/qvsi -1.0)
   endif ! l_sb_inuc_sat
 
@@ -654,10 +654,10 @@ subroutine deposit_ice3
          ,nrex_ci   ! reynolds number
 
   q_avail = qt0 - q_cl - qvsi ! NOTE: q_avail < 0 sublimation instead of deposition
-  Si = q_avail/max(qvsi, tiny(1.0))
+  Si = q_avail/max(qvsi, eps0)
 
   ! calculating G_iv
-  esi = max(qvsi, tiny(1.0))*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, tiny(1.0)))
+  esi = max(qvsi, eps0)*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, eps0))
   G = (rv * tmp0) / (Dv*esi) + rlvi/(Kt*tmp0)*(rlvi/(rv*tmp0) -1.)
   G = 1./G
 
@@ -717,10 +717,10 @@ subroutine deposit_snow3
          ,nrex_hs   ! reynolds number
 
   q_avail = qt0 - q_cl - qvsi ! NOTE: q_avail < 0 sublimation instead of deposition
-  Si = q_avail/max(qvsi, tiny(1.0))
+  Si = q_avail/max(qvsi, eps0)
 
   ! calculating G_iv
-  esi = max(qvsi, tiny(1.0))*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, tiny(1.0)))
+  esi = max(qvsi, eps0)*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, eps0))
   G = (rv * tmp0) / (Dv*esi) + rlvi/(Kt*tmp0)*(rlvi/(rv*tmp0) -1.)
   G = 1./G
 
@@ -779,10 +779,10 @@ subroutine deposit_graupel3
          ,nrex_hg   ! reynolds number
 
   q_avail = qt0 - q_cl - qvsi ! NOTE: q_avail < 0 sublimation instead of deposition
-  Si = q_avail/max(qvsi, tiny(1.0))
+  Si = q_avail/max(qvsi, eps0)
 
   ! calculating G_iv
-  esi = max(qvsi, tiny(1.0))*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, tiny(1.0)))
+  esi = max(qvsi, eps0)*presf_k/(rd/rv+(1.0-rd/rv)*max(qvsi, eps0))
   G = (rv * tmp0) / (Dv*esi) + rlvi/(Kt*tmp0)*(rlvi/(rv*tmp0) -1.)
   G = 1./G
 
@@ -2447,12 +2447,19 @@ subroutine accretion3
   implicit none
 
   real :: phi, Dvrf, tau
+  real :: lbdr_eff, rhof_eff
   real :: rem_cf
   real :: dq_hr_ac = 0.
   real :: dn_hr_br = 0.
   real :: dn_hr_sc = 0.
 
   if (l_sb) then
+
+    ! Use safe denominators to avoid singular behavior in low-density/low-lambda edge cases.
+    lbdr_eff = lbdr
+    if (.not. (lbdr_eff > lbdr_min)) lbdr_eff = lbdr_min
+    rhof_eff = rhof_k
+    if (.not. (rhof_eff > eps0)) rhof_eff = eps0
 
     ! SB accretion
     if (l_sb_classic) then
@@ -2462,7 +2469,7 @@ subroutine accretion3
         tau = 1.0 - q_cl/(q_cl + q_hr) ! NOTE: was qltot
         phi = (tau/(tau + k_l))**4.
         dq_hr_ac = k_cr *rhof_k*q_cl*q_hr * phi * &
-                         (rho0s/rhof_k)**0.5  ! rho*rho / rho  = rho
+                         (rho0s/rhof_eff)**0.5  ! rho*rho / rho  = rho
 
         ! basic ac correction
         dq_hr_ac = min(dq_hr_ac,q_cl/delt) ! min(dq_hr_ac,q_clm/delt)
@@ -2490,7 +2497,7 @@ subroutine accretion3
 
       ! SB self-collection & Break-up
       dn_hr_sc = -k_rr *rhof_k* q_hr * n_hr  &
-        * (1.0 + kappa_r/lbdr)**(-9.)*(rho0s/rhof_k)**0.5
+        * (1.0 + kappa_r/lbdr_eff)**(-9)*(rho0s/rhof_eff)**0.5
 
       ! and calculating size of droplets - adjusted
       Dvrf = Dvr ! for now leaving the same
@@ -2514,7 +2521,7 @@ subroutine accretion3
         tau = 1.0 - ql0/(q_cl + q_hr) ! NOTE: was qltot
         phi = (tau/(tau + k_l))**4.
 
-        dq_hr_ac = k_r *rhof_k*ql0 * q_hr * phi * (1.225/rhof_k)**0.5
+        dq_hr_ac = k_r *rhof_k*ql0 * q_hr * phi * (1.225/rhof_eff)**0.5
         q_hrp = q_hrp + dq_hr_ac
 
         ! no change n_hrp
@@ -2528,7 +2535,7 @@ subroutine accretion3
       endif
 
       dn_hr_sc = -k_rr *rhof_k* q_hr * n_hr  &
-        * (1.0 + kappa_r/lbdr*pirhow**(1./3.))**(-9.)*(rho0s/rhof_k)**0.5
+        * (1.0 + kappa_r/lbdr_eff*pirhow**(1./3.))**(-9)*(rho0s/rhof_eff)**0.5
 
       if (Dvr .gt. dvrlim) then
         if (Dvr .gt. dvrbiglim) then
