@@ -99,12 +99,17 @@ subroutine nucleation3(qt0, qvsl, w0, q_cl, q_clp, n_cl, n_clp, n_cc, statistics
   ! allows to keep both definitions consistent
 
   ! calculating supersaturation
+  ssat = 0.0
   if (l_sb_nuc_sat) then
     ! calculating supersaturation of water vapour only
-    ssat = (100./qvsl)*(qt0-q_cl-qvsl)
+    where (qvsl > tiny(1.0))
+      ssat = (100./qvsl)*(qt0-q_cl-qvsl)
+    end where
   else ! l_sb_nuc_sat
     ! ie. cloud liquid water is also included supersaturation
-    ssat = (100./qvsl)*(qt0-qvsl)
+    where (qvsl > tiny(1.0))
+      ssat = (100./qvsl)*(qt0-qvsl)
+    end where
   endif ! l_sb_nuc_sat
 
   ! calculating the derivation - second order estimation?
@@ -115,7 +120,7 @@ subroutine nucleation3(qt0, qvsl, w0, q_cl, q_clp, n_cl, n_clp, n_cc, statistics
   ! or 0 to prevent condensation there
   wdssatdz(1) = w0(2)*(ssat(2)-ssat(1))/dzf(2)
   do k=2,k1 - 1
-    wdssatdz = 0.5*(w0(k+1)+w0(k))*(ssat(k+1) - ssat(k-1))/(dzf(k)+dzf(k-1))
+    wdssatdz(k) = 0.5*(w0(k+1)+w0(k))*(ssat(k+1) - ssat(k-1))/(dzf(k)+dzf(k-1))
   enddo
   ! first order approximation of the difference
   wdssatdz(k1) = w0(k1)*(ssat(k1) - ssat(k1-1)) / dzf(k1-1)

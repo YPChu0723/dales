@@ -37,7 +37,7 @@ module modthermodynamics
   use modfields,       only: qt0, thl0, qt0h, thl0h, ql0, presf, exnf, thvh, &
                              thv0h, qt0av, ql0av, thvf, rhof, ql0h, presh, exnh, &
                              u0, v0, sv0, u0av, v0av, thl0av, ql0av, sv0av, &
-                             tmp0, dthvdz, thl0h, qt0h
+                             tmp0, dthvdz, thl0h, qt0h, esl, qvsl, qvsi
   use modsurfdata,     only: qts, thls, ps, dthldz, dqtdz
   use modmpi,          only: myid, d_mpi_bcast, commwrld, slabsum
   use modmicrodata,    only: imicro, imicro_bulk3
@@ -216,6 +216,9 @@ contains
 
 
       call diagfld
+
+      ! Refresh saturation diagnostics used by microphysics (e.g. bulk3 nucleation).
+      call calc_saturation_humidities(qt0, ql0, thl0, presf, exnf, esl, qvsl, qvsi)
 
       ! Interpolate thl and qt to the half levels
       call calc_halflev(thl0, dzf, dzhi, thls, iadv_thl == iadv_kappa, thl0h)
