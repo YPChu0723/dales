@@ -431,6 +431,13 @@ subroutine initbulkmicrostat3
         statistic_svp_csum = 0.
       endwhere
       statistic_sv0_count = statistic_sv0_count / ijtot / nsamples
+
+      call sanitize_nc_2d(statistic_mphys,     'statistic_mphys')
+      call sanitize_nc_2d(statistic_sv0_count, 'statistic_sv0_count')
+      call sanitize_nc_2d(statistic_sv0_fsum,  'statistic_sv0_fsum')
+      call sanitize_nc_2d(statistic_sv0_csum,  'statistic_sv0_csum')
+      call sanitize_nc_2d(statistic_svp_fsum,  'statistic_svp_fsum')
+      call sanitize_nc_2d(statistic_svp_csum,  'statistic_svp_csum')
     endif
 
     if (l_tendencies) then
@@ -438,6 +445,7 @@ subroutine initbulkmicrostat3
 
       ! normalize
       tend_fsum = tend_fsum / ijtot / nsamples
+      call sanitize_nc_2d(tend_fsum, 'tend_fsum')
     endif
 
     if (myid == 0) then
@@ -485,10 +493,10 @@ subroutine initbulkmicrostat3
           cnt = cnt + 11
 
           call writestat_nc(ncid_mphys,1,ncmname(cnt + 1 : cnt + 1,:),statistic_sv0_count(iq_hr : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 2 : cnt + 2,:),statistic_sv0_count(iq_cl : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 3 : cnt + 3,:),statistic_sv0_count(iq_ci : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 4 : cnt + 4,:),statistic_sv0_count(iq_hs : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 5 : cnt + 5,:),statistic_sv0_count(iq_hg : iq_hr,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 2 : cnt + 2,:),statistic_sv0_count(iq_cl : iq_cl,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 3 : cnt + 3,:),statistic_sv0_count(iq_ci : iq_ci,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 4 : cnt + 4,:),statistic_sv0_count(iq_hs : iq_hs,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 5 : cnt + 5,:),statistic_sv0_count(iq_hg : iq_hg,1:kmax),nrec_mphys,kmax)
           cnt = cnt + 5
 
           call writestat_nc(ncid_mphys,1,ncmname(cnt + in_hr : cnt + in_hr,:),statistic_sv0_csum(in_hr : in_hr,1:kmax),nrec_mphys,kmax)
@@ -640,6 +648,38 @@ subroutine initbulkmicrostat3
       tend_fsum = 0.
     endif
   end subroutine writebulkmicrostat3
+
+  ! Replace non-finite values and clamp to float32 range before netCDF writes.
+  subroutine sanitize_nc_2d(arr, name)
+    use modmpi, only : myid
+    use, intrinsic :: ieee_arithmetic, only : ieee_is_finite
+    use, intrinsic :: iso_fortran_env, only : real32
+    implicit none
+    real, intent(inout) :: arr(:,:)
+    character(len=*), intent(in) :: name
+    real, parameter :: nc_fill = -999.
+    real, parameter :: nc_abs_max = real(huge(1.0_real32), kind=kind(arr))
+    integer :: n_nonfinite, n_clamped
+
+    n_nonfinite = count(.not. ieee_is_finite(arr))
+    if (n_nonfinite > 0) then
+      where (.not. ieee_is_finite(arr))
+        arr = nc_fill
+      end where
+    end if
+
+    n_clamped = count(abs(arr) > nc_abs_max)
+    if (n_clamped > 0) then
+      where (abs(arr) > nc_abs_max)
+        arr = sign(nc_abs_max, arr)
+      end where
+    end if
+
+    if (myid == 0 .and. (n_nonfinite > 0 .or. n_clamped > 0)) then
+      write(6,'(A,1X,A,1X,A,I0,1X,A,I0)') 'WARNING modbulkmicrostat3:', trim(name), &
+        'nonfinite=', n_nonfinite, 'clamped=', n_clamped
+    end if
+  end subroutine sanitize_nc_2d
 
 !------------------------------------------------------------------------------!
   subroutine exitbulkmicrostat3
