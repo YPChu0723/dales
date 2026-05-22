@@ -88,14 +88,24 @@ subroutine initbulkmicrostat3
     call D_MPI_BCAST(lmicrostat,1,0,comm3d,mpierr)
     call D_MPI_BCAST(dtav      ,1,0,comm3d,mpierr)
     call D_MPI_BCAST(timeav    ,1,0,comm3d,mpierr)
+    if (.not. lmicrostat) return
+    if (tres <= 0.) then
+      stop 'tres must be positive in initbulkmicrostat3'
+    end if
+    if (dtav <= 0. .or. timeav <= 0.) then
+      stop 'dtav and timeav must be positive (NAMBULKMICROSTAT)'
+    end if
+
     idtav = dtav/tres
     itimeav = timeav/tres
+    if (idtav <= 0 .or. itimeav <= 0) then
+      stop 'dtav/timeav are too small compared to tres (NAMBULKMICROSTAT)'
+    end if
 
     tnext      = idtav   + btime
     tnextwrite = itimeav + btime
     nsamples   = itimeav / idtav
 
-    if (.not. lmicrostat) return
     if (abs(timeav/dtav - nsamples) > 1e-4) then
       stop 'timeav must be an integer multiple of dtav (NAMBULKMICROSTAT)'
     end if
@@ -112,6 +122,9 @@ subroutine initbulkmicrostat3
     if (lnetcdf) then
       idtav      = idtav_prof
       itimeav    = itimeav_prof
+      if (idtav <= 0 .or. itimeav <= 0) then
+        stop 'modstat_nc dtav/timeav must be positive before microstat3 init'
+      end if
       tnext      = idtav   + btime
       tnextwrite = itimeav + btime
       nsamples   = itimeav / idtav
