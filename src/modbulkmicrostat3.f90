@@ -90,7 +90,7 @@ subroutine initbulkmicrostat3
     call D_MPI_BCAST(timeav    ,1,0,comm3d,mpierr)
     if (.not. lmicrostat) return
     if (tres <= 0.) then
-      stop 'tres must be positive in initbulkmicrostat3'
+      stop 'tres must be positive before NAMBULKMICROSTAT is initialized'
     end if
     if (dtav <= 0. .or. timeav <= 0.) then
       stop 'dtav and timeav must be positive (NAMBULKMICROSTAT)'
@@ -99,7 +99,7 @@ subroutine initbulkmicrostat3
     idtav = dtav/tres
     itimeav = timeav/tres
     if (idtav <= 0 .or. itimeav <= 0) then
-      stop 'dtav/timeav are too small compared to tres (NAMBULKMICROSTAT)'
+      stop 'dtav and timeav must be >= tres (NAMBULKMICROSTAT)'
     end if
 
     tnext      = idtav   + btime
