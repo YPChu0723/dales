@@ -47,6 +47,18 @@ save
   integer                           :: ncid_tends = 0
   integer                           :: nrec_mphys = 0
   integer                           :: nrec_tends = 0
+  ! Bug-fix note: ncinfo's intent(out) argument is an explicit-shape array of
+  ! shape (4). Passing a non-contiguous row slice ncmname(k,:) of a (nmvar,4)
+  ! array forces the compiler to create an array temporary and copy it back to
+  ! the original strided locations after the call. On some platforms (arm64
+  ! macOS, gfortran) the copy-back is unreliable, leaving ncmname blank and
+  ! causing define_nc to abort with "Bad dimensional information".
+  !
+  ! Workaround: pass a local contiguous scratch (tmp4_m / tmp4_t) to ncinfo,
+  ! then assign it into ncmname(k,:) with an ordinary array assignment. An
+  ! array assignment is inlined as an element-wise loop by the compiler and
+  ! does not go through the intent(out) copy-back path, so it works for
+  ! non-contiguous LHS slices.
   character(80),dimension(nmvar,4)  :: ncmname
   character(80),dimension(ntvar,4)  :: nctname
   character(80),dimension(1,4)      :: tncmname
@@ -73,6 +85,7 @@ subroutine initbulkmicrostat3
     implicit none
     integer      :: ierr
     integer      :: cnt
+    character(80) :: tmp4_m(4), tmp4_t(4)  ! contiguous scratch for ncinfo (see header note)
     character(len=*), parameter :: routine = modname//'/initbulkmicrostat3'
 
     namelist/NAMBULKMICROSTAT/ &
@@ -126,76 +139,76 @@ subroutine initbulkmicrostat3
           call nctiminfo(tncmname(1,:))
 
           cnt = 0
-          call ncinfo(ncmname(cnt + imphys_freeze,:),'imphys_freeze','change in th due to freezing'    ,'-','tt')
-          call ncinfo(ncmname(cnt + imphys_melt  ,:),'imphys_melt'  ,'change in th due to melting'     ,'-','tt')
-          call ncinfo(ncmname(cnt + imphys_cond  ,:),'imphys_cond'  ,'change in th due to condensation','-','tt')
-          call ncinfo(ncmname(cnt + imphys_ev    ,:),'imphys_ev'    ,'change in th due to evaporation' ,'-','tt')
-          call ncinfo(ncmname(cnt + imphys_dep   ,:),'imphys_dep'   ,'change in th due to deposition'  ,'-','tt')
-          call ncinfo(ncmname(cnt + imphys_sub   ,:),'imphys_sub'   ,'change in th due to sublimation' ,'-','tt')
+          call ncinfo(tmp4_m, 'imphys_freeze','change in th due to freezing'    ,'-','tt'); ncmname(cnt + imphys_freeze,:) = tmp4_m
+          call ncinfo(tmp4_m, 'imphys_melt'  ,'change in th due to melting'     ,'-','tt'); ncmname(cnt + imphys_melt  ,:) = tmp4_m
+          call ncinfo(tmp4_m, 'imphys_cond'  ,'change in th due to condensation','-','tt'); ncmname(cnt + imphys_cond  ,:) = tmp4_m
+          call ncinfo(tmp4_m, 'imphys_ev'    ,'change in th due to evaporation' ,'-','tt'); ncmname(cnt + imphys_ev    ,:) = tmp4_m
+          call ncinfo(tmp4_m, 'imphys_dep'   ,'change in th due to deposition'  ,'-','tt'); ncmname(cnt + imphys_dep   ,:) = tmp4_m
+          call ncinfo(tmp4_m, 'imphys_sub'   ,'change in th due to sublimation' ,'-','tt'); ncmname(cnt + imphys_sub   ,:) = tmp4_m
           cnt = cnt + 6
 
           ! statistic_sv0_fsum(ncols,k1)
-          call ncinfo(ncmname(cnt + in_hr,:),'n_hr','Average number content of rain'          ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_hr,:),'q_hr','Average water content of rain'           ,'-','tt')
-          call ncinfo(ncmname(cnt + in_cl,:),'n_cl','Average number content of cloud droplets','-','tt')
-          call ncinfo(ncmname(cnt + iq_cl,:),'q_cl','Average water content of cloud droplets' ,'-','tt')
-          call ncinfo(ncmname(cnt + in_ci,:),'n_ci','Average number content of ice crystals'  ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_ci,:),'q_ci','Average water content of ice crystals'   ,'-','tt')
-          call ncinfo(ncmname(cnt + in_hs,:),'n_hs','Average number content of snow'          ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_hs,:),'q_hs','Average water content of snow'           ,'-','tt')
-          call ncinfo(ncmname(cnt + in_hg,:),'n_hg','Average number content of graupel'       ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_hg,:),'q_hg','Average water content of graupel'        ,'-','tt')
-          call ncinfo(ncmname(cnt + in_cc,:),'n_cc','Average number content of ccn'           ,'-','tt')
+          call ncinfo(tmp4_m, 'n_hr','Average number content of rain'          ,'-','tt'); ncmname(cnt + in_hr,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hr','Average water content of rain'           ,'-','tt'); ncmname(cnt + iq_hr,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_cl','Average number content of cloud droplets','-','tt'); ncmname(cnt + in_cl,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_cl','Average water content of cloud droplets' ,'-','tt'); ncmname(cnt + iq_cl,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_ci','Average number content of ice crystals'  ,'-','tt'); ncmname(cnt + in_ci,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_ci','Average water content of ice crystals'   ,'-','tt'); ncmname(cnt + iq_ci,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_hs','Average number content of snow'          ,'-','tt'); ncmname(cnt + in_hs,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hs','Average water content of snow'           ,'-','tt'); ncmname(cnt + iq_hs,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_hg','Average number content of graupel'       ,'-','tt'); ncmname(cnt + in_hg,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hg','Average water content of graupel'        ,'-','tt'); ncmname(cnt + iq_hg,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_cc','Average number content of ccn'           ,'-','tt'); ncmname(cnt + in_cc,:) = tmp4_m
           cnt = cnt + 11
 
           ! statistic_svp_fsum(ncols,k1)
-          call ncinfo(ncmname(cnt + in_hr,:),'n_hrp','Average tendency of number content of rain'          ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_hr,:),'q_hrp','Average tendency of water content of rain'           ,'-','tt')
-          call ncinfo(ncmname(cnt + in_cl,:),'n_clp','Average tendency of number content of cloud droplets','-','tt')
-          call ncinfo(ncmname(cnt + iq_cl,:),'q_clp','Average tendency of water content of cloud droplets' ,'-','tt')
-          call ncinfo(ncmname(cnt + in_ci,:),'n_cip','Average tendency of number content of ice crystals'  ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_ci,:),'q_cip','Average tendency of water content of ice crystals'   ,'-','tt')
-          call ncinfo(ncmname(cnt + in_hs,:),'n_hsp','Average tendency of number content of snow'          ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_hs,:),'q_hsp','Average tendency of water content of snow'           ,'-','tt')
-          call ncinfo(ncmname(cnt + in_hg,:),'n_hgp','Average tendency of number content of graupel'       ,'-','tt')
-          call ncinfo(ncmname(cnt + iq_hg,:),'q_hgp','Average tendency of water content of graupel'        ,'-','tt')
-          call ncinfo(ncmname(cnt + in_cc,:),'n_ccp','Average tendency of number content of ccn'           ,'-','tt')
+          call ncinfo(tmp4_m, 'n_hrp','Average tendency of number content of rain'          ,'-','tt'); ncmname(cnt + in_hr,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hrp','Average tendency of water content of rain'           ,'-','tt'); ncmname(cnt + iq_hr,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_clp','Average tendency of number content of cloud droplets','-','tt'); ncmname(cnt + in_cl,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_clp','Average tendency of water content of cloud droplets' ,'-','tt'); ncmname(cnt + iq_cl,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_cip','Average tendency of number content of ice crystals'  ,'-','tt'); ncmname(cnt + in_ci,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_cip','Average tendency of water content of ice crystals'   ,'-','tt'); ncmname(cnt + iq_ci,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_hsp','Average tendency of number content of snow'          ,'-','tt'); ncmname(cnt + in_hs,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hsp','Average tendency of water content of snow'           ,'-','tt'); ncmname(cnt + iq_hs,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_hgp','Average tendency of number content of graupel'       ,'-','tt'); ncmname(cnt + in_hg,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hgp','Average tendency of water content of graupel'        ,'-','tt'); ncmname(cnt + iq_hg,:) = tmp4_m
+          call ncinfo(tmp4_m, 'n_ccp','Average tendency of number content of ccn'           ,'-','tt'); ncmname(cnt + in_cc,:) = tmp4_m
           cnt = cnt + 11
 
           ! statistic_sv0_count(ncols,k1)
-          call ncinfo(ncmname(cnt + 1,:),'q_hr_count','Count of water content of rain above threshold'           ,'-','tt')
-          call ncinfo(ncmname(cnt + 2,:),'q_cl_count','Count of water content of cloud droplets above threshold' ,'-','tt')
-          call ncinfo(ncmname(cnt + 3,:),'q_ci_count','Count of water content of ice crystals above threshold'   ,'-','tt')
-          call ncinfo(ncmname(cnt + 4,:),'q_hs_count','Count of water content of snow above threshold'           ,'-','tt')
-          call ncinfo(ncmname(cnt + 5,:),'q_hg_count','Count of water content of graupel above threshold'        ,'-','tt')
+          call ncinfo(tmp4_m, 'q_hr_count','Count of water content of rain above threshold'           ,'-','tt'); ncmname(cnt + 1,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_cl_count','Count of water content of cloud droplets above threshold' ,'-','tt'); ncmname(cnt + 2,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_ci_count','Count of water content of ice crystals above threshold'   ,'-','tt'); ncmname(cnt + 3,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hs_count','Count of water content of snow above threshold'           ,'-','tt'); ncmname(cnt + 4,:) = tmp4_m
+          call ncinfo(tmp4_m, 'q_hg_count','Count of water content of graupel above threshold'        ,'-','tt'); ncmname(cnt + 5,:) = tmp4_m
           cnt = cnt + 5
 
           ! statistic_sv0_csum(ncols,k1)
-          call ncinfo(ncmname(cnt + 1,:),'cn_hr','Average number content of rain above threshold'          ,'-','tt')
-          call ncinfo(ncmname(cnt + 2,:),'cq_hr','Average water content of rain above threshold'           ,'-','tt')
-          call ncinfo(ncmname(cnt + 3,:),'cn_cl','Average number content of cloud droplets above threshold','-','tt')
-          call ncinfo(ncmname(cnt + 4,:),'cq_cl','Average water content of cloud droplets above threshold' ,'-','tt')
-          call ncinfo(ncmname(cnt + 5,:),'cn_ci','Average number content of ice crystals above threshold'  ,'-','tt')
-          call ncinfo(ncmname(cnt + 6,:),'cq_ci','Average water content of ice crystals above threshold'   ,'-','tt')
-          call ncinfo(ncmname(cnt + 7,:),'cn_hs','Average number content of snow above threshold'          ,'-','tt')
-          call ncinfo(ncmname(cnt + 8,:),'cq_hs','Average water content of snow above threshold'           ,'-','tt')
-          call ncinfo(ncmname(cnt + 9,:),'cn_hg','Average number content of graupel above threshold'       ,'-','tt')
-          call ncinfo(ncmname(cnt +10,:),'cq_hg','Average water content of graupel above threshold'        ,'-','tt')
-          call ncinfo(ncmname(cnt +11,:),'cn_cc','Average number content of ccn above threshold'           ,'-','tt')
+          call ncinfo(tmp4_m, 'cn_hr','Average number content of rain above threshold'          ,'-','tt'); ncmname(cnt + 1,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_hr','Average water content of rain above threshold'           ,'-','tt'); ncmname(cnt + 2,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_cl','Average number content of cloud droplets above threshold','-','tt'); ncmname(cnt + 3,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_cl','Average water content of cloud droplets above threshold' ,'-','tt'); ncmname(cnt + 4,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_ci','Average number content of ice crystals above threshold'  ,'-','tt'); ncmname(cnt + 5,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_ci','Average water content of ice crystals above threshold'   ,'-','tt'); ncmname(cnt + 6,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_hs','Average number content of snow above threshold'          ,'-','tt'); ncmname(cnt + 7,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_hs','Average water content of snow above threshold'           ,'-','tt'); ncmname(cnt + 8,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_hg','Average number content of graupel above threshold'       ,'-','tt'); ncmname(cnt + 9,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_hg','Average water content of graupel above threshold'        ,'-','tt'); ncmname(cnt +10,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_cc','Average number content of ccn above threshold'           ,'-','tt'); ncmname(cnt +11,:) = tmp4_m
           cnt = cnt + 11
 
           ! statistic_svp_csum(ncols,k1)
-          call ncinfo(ncmname(cnt + 1,:),'cn_hrp','Average tendency of number content of rain above threshold'          ,'-','tt')
-          call ncinfo(ncmname(cnt + 2,:),'cq_hrp','Average tendency of water content of rain above threshold'           ,'-','tt')
-          call ncinfo(ncmname(cnt + 3,:),'cn_clp','Average tendency of number content of cloud droplets above threshold','-','tt')
-          call ncinfo(ncmname(cnt + 4,:),'cq_clp','Average tendency of water content of cloud droplets above threshold' ,'-','tt')
-          call ncinfo(ncmname(cnt + 5,:),'cn_cip','Average tendency of number content of ice crystals above threshold'  ,'-','tt')
-          call ncinfo(ncmname(cnt + 6,:),'cq_cip','Average tendency of water content of ice crystals above threshold'   ,'-','tt')
-          call ncinfo(ncmname(cnt + 7,:),'cn_hsp','Average tendency of number content of snow above threshold'          ,'-','tt')
-          call ncinfo(ncmname(cnt + 8,:),'cq_hsp','Average tendency of water content of snow above threshold'           ,'-','tt')
-          call ncinfo(ncmname(cnt + 9,:),'cn_hgp','Average tendency of number content of graupel above threshold'       ,'-','tt')
-          call ncinfo(ncmname(cnt +10,:),'cq_hgp','Average tendency of water content of graupel above threshold'        ,'-','tt')
-          call ncinfo(ncmname(cnt +11,:),'cn_ccp','Average tendency of number content of ccn above threshold'           ,'-','tt')
+          call ncinfo(tmp4_m, 'cn_hrp','Average tendency of number content of rain above threshold'          ,'-','tt'); ncmname(cnt + 1,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_hrp','Average tendency of water content of rain above threshold'           ,'-','tt'); ncmname(cnt + 2,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_clp','Average tendency of number content of cloud droplets above threshold','-','tt'); ncmname(cnt + 3,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_clp','Average tendency of water content of cloud droplets above threshold' ,'-','tt'); ncmname(cnt + 4,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_cip','Average tendency of number content of ice crystals above threshold'  ,'-','tt'); ncmname(cnt + 5,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_cip','Average tendency of water content of ice crystals above threshold'   ,'-','tt'); ncmname(cnt + 6,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_hsp','Average tendency of number content of snow above threshold'          ,'-','tt'); ncmname(cnt + 7,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_hsp','Average tendency of water content of snow above threshold'           ,'-','tt'); ncmname(cnt + 8,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_hgp','Average tendency of number content of graupel above threshold'       ,'-','tt'); ncmname(cnt + 9,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cq_hgp','Average tendency of water content of graupel above threshold'        ,'-','tt'); ncmname(cnt +10,:) = tmp4_m
+          call ncinfo(tmp4_m, 'cn_ccp','Average tendency of number content of ccn above threshold'           ,'-','tt'); ncmname(cnt +11,:) = tmp4_m
           cnt = cnt + 11
 
           ! -- finish
@@ -219,99 +232,99 @@ subroutine initbulkmicrostat3
 
           ! all tend_fsum
           cnt = 0
-          call ncinfo(nctname(cnt + idn_cl_nu     ,:),'dn_cl_nu'      , 'droplet nucleation rate'                                      ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_inu    ,:),'dn_ci_inu'     , 'ice nucleation rate'                                          ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_au     ,:),'dn_cl_au'      , 'change in number of cloud droplets due to autoconversion'     ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_au     ,:),'dq_hr_au'      , 'change in mass of raindrops due to autoconversion'            ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_au     ,:),'dn_hr_au'      , 'change in number of raindrops due to autoconversion'          ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_ac     ,:),'dq_hr_ac'      , 'change in mass of raindrops due to accretion'                 ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_ac     ,:),'dn_cl_ac'      , 'change in number of cloud droplets due to accretion'          ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_br     ,:),'dn_hr_br'      , 'change in number of raindrops due to breakup'                 ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_sc     ,:),'dn_hr_sc'      , 'change in number of raindrops due to self-collection'         ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_ev     ,:),'dq_hr_ev'      , 'change in mass of raindrops due to evaporation'               ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_ev     ,:),'dn_hr_ev'      , 'change in number of raindrops due to evaporation'             ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_dep    ,:),'dq_ci_dep'     , 'deposition rate for clouds'                                   ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_dep    ,:),'dq_hs_dep'     , 'deposition rate for snow'                                     ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hg_dep    ,:),'dq_hg_dep'     , 'deposition rate for graupel'                                  ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_rime   ,:),'dq_ci_rime'    , 'riming growth of ice'                                         ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_rime_ci,:),'dn_cl_rime_ci' , ' - and impact on n_cl'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_rime   ,:),'dq_hs_rime'    , 'riming growth of snow'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_rime_hs,:),'dn_cl_rime_hs' , ' - and impact on n_cl'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hg_rime   ,:),'dq_hg_rime'    , 'riming growth for graupel'                                    ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_rime_hg,:),'dn_cl_rime_hg' , ' - and impact on n_cl'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hshr_rime ,:),'dq_hshr_rime'  , 'riming growth for snow with rain'                             ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_rime_hs,:),'dn_hr_rime_hs' , ' - and impact on n_hr'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hghr_rime ,:),'dq_hghr_rime'  , 'riming growth for graupel with rain'                          ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_rime_hg,:),'dn_hr_rime_hg' , ' - and impact on n_hr'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_rime_ri,:),'dq_hr_rime_ri' , 'rain loss from riming of ice+rain->gr'                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_rime_ri,:),'dq_ci_rime_ri' , 'ice loss from riming of ice+rain->gr'                         ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_rime_ri,:),'dn_ci_rime_ri' , 'ice number loss from riming of ice+rain->gr'                  ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_rime_ri,:),'dn_hr_rime_ri' , 'rain number loss from riming of ice+rain->gr'                 ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_col_rs ,:),'dq_hr_col_rs'  , 'rain loss from riming of ice+snow->gr'                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_col_rs ,:),'dq_hs_col_rs'  , 'rain number loss from riming of ice+snow->gr'                 ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_col_rs ,:),'dn_hr_col_rs'  , 'snow loss from riming of ice+snow->gr'                        ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_col_rs ,:),'dn_hs_col_rs'  , 'snow number loss from riming of ice+snow->gr'                 ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_col_ri ,:),'dq_hr_col_ri'  , 'rain loss from riming of ice+rain->gr'                        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_col_ri ,:),'dq_ci_col_ri'  , 'ice loss from riming of ice+rain->gr'                         ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_col_ri ,:),'dn_ci_col_ri'  , 'ice number loss from riming of ice+rain->gr'                  ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_col_ri ,:),'dn_hr_col_ri'  , 'rain number loss from riming of ice+rain->gr'                 ,'-','tt')
-          call ncinfo(nctname(cnt + idq_cl_het    ,:),'dq_cl_het'     , 'heterogeneou freezing of cloud water'                         ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_het    ,:),'dn_cl_het'     , 'heterogeneou freezing of cloud water'                         ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_het    ,:),'dq_hr_het'     , 'heterogeneou freezing of raindrops'                           ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_het    ,:),'dn_hr_het'     , 'heterogeneou freezing of raindrops'                           ,'-','tt')
-          call ncinfo(nctname(cnt + idq_cl_hom    ,:),'dq_cl_hom'     , 'homogeneous freezing of cloud water'                          ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_hom    ,:),'dn_cl_hom'     , 'homogeneous freezing of cloud water'                          ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_col_iis,:),'dq_ci_col_iis' , 'self-collection of cloud ice'                                 ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_col_iis,:),'dn_ci_col_iis' , 'self-collection of cloud ice'                                 ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_col_sss,:),'dn_hs_col_sss' , 'self-collection of snow'                                      ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hsci_col  ,:),'dq_hsci_col'   , 'collection s+i - trend in q_hs'                               ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_col_hs ,:),'dn_ci_col_hs'  , 'collection s+i - trend in n_ci'                               ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hghs_col  ,:),'dq_hghs_col'   , 'collection g+s - trend in q_hg'                               ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_col_hg ,:),'dn_hs_col_hg'  , 'collection g+s - trend in n_hs'                               ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_cv     ,:),'dq_ci_cv'      , 'partial conversion ice -> graupel'                            ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_cv     ,:),'dn_ci_cv'      , 'partial conversion ice -> graupel'                            ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_cv     ,:),'dq_hs_cv'      , 'partial conversion snow-> graupel'                            ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_cv     ,:),'dn_hs_cv'      , 'partial conversion snow-> graupel'                            ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_sc     ,:),'dn_cl_sc'      , 'cloud self-collection'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_mul    ,:),'dn_ci_mul'     , 'ice multiplication'                                           ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_mul    ,:),'dq_ci_mul'     , 'ice multiplication'                                           ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_me     ,:),'dn_ci_me'      , 'number tendency melting of cloud ice'                         ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_me     ,:),'dq_ci_me'      , 'mass tendency melting of cloud ice'                           ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_me     ,:),'dn_hs_me'      , 'number tendency melting of snow'                              ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_me     ,:),'dq_hs_me'      , 'mass tendency melting of snow'                                ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hg_me     ,:),'dn_hg_me'      , 'number tendency melting of graupel'                           ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hg_me     ,:),'dq_hg_me'      , 'mass tendency melting of graupel'                             ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_ev     ,:),'dn_ci_ev'      , 'number tendency evaporation of cloud ice'                     ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_ev     ,:),'dq_ci_ev'      , 'mass tendency evaporation of cloud ice'                       ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_ev     ,:),'dn_hs_ev'      , 'number tendency evaporation of snow'                          ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_ev     ,:),'dq_hs_ev'      , 'mass tendency evaporation of snow'                            ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hg_ev     ,:),'dn_hg_ev'      , 'number tendency evaporation of graupel'                       ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hg_ev     ,:),'dq_hg_ev'      , 'mass tendency evaporation of graupel'                         ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_eme_ic ,:),'dn_ci_eme_ic'  , 'number tendency enhanced melting of cloud ice by cloud water' ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_eme_ic ,:),'dq_ci_eme_ic'  , 'mass tendency enhanced melting of cloud ice by cloud water'   ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_eme_ri ,:),'dn_ci_eme_ri'  , 'number tendency enhanced melting of cloud ice by rain'        ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_eme_ri ,:),'dq_ci_eme_ri'  , 'mass tendency enhanced melting of cloud ice  by rain'         ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_eme_sc ,:),'dn_hs_eme_sc'  , 'number tendency enhanced melting of snow by cloud water'      ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_eme_sc ,:),'dq_hs_eme_sc'  , 'mass tendency enhanced melting of snow by cloud water'        ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_eme_rs ,:),'dn_hs_eme_rs'  , 'number tendency enhanced melting of snow by rain'             ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_eme_rs ,:),'dq_hs_eme_rs'  , 'mass tendency enhanced melting of snow by rain'               ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hg_eme_gc ,:),'dn_hg_eme_gc'  , 'number tendency enhanced melting of graupel by liquid clouds' ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hg_eme_gc ,:),'dq_hg_eme_gc'  , 'mass tendency enhanced melting of graupel by liquid clouds'   ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hg_eme_gr ,:),'dn_hg_eme_gr'  , 'number tendency enhanced melting of graupel by rain'          ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hg_eme_gr ,:),'dq_hg_eme_gr'  , 'mass tendency enhanced melting of graupel by rain'            ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_se     ,:),'dn_cl_se'      , 'sedimentation for clouds water - number'                      ,'-','tt')
-          call ncinfo(nctname(cnt + idq_cl_se     ,:),'dq_cl_se'      , '     -||-- mixing ration'                                     ,'-','tt')
-          call ncinfo(nctname(cnt + idn_ci_se     ,:),'dn_ci_se'      , 'sedimentation for cloud ice - number'                         ,'-','tt')
-          call ncinfo(nctname(cnt + idq_ci_se     ,:),'dq_ci_se'      , '      -||-- mixing ration'                                    ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hr_se     ,:),'dn_hr_se'      , 'sedimentation for rain - number'                              ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hr_se     ,:),'dq_hr_se'      , '      -||-- mixing ration'                                    ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hs_se     ,:),'dn_hs_se'      , 'sedimentation for snow - number'                              ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hs_se     ,:),'dq_hs_se'      , '      -||-- mixing ration'                                    ,'-','tt')
-          call ncinfo(nctname(cnt + idn_hg_se     ,:),'dn_hg_se'      , 'sedimentation for graupel - number'                           ,'-','tt')
-          call ncinfo(nctname(cnt + idq_hg_se     ,:),'dq_hg_se'      , '      -||-- mixing ration'                                    ,'-','tt')
-          call ncinfo(nctname(cnt + idq_cl_sa     ,:),'dq_cl_sa'      , 'saturation adjustment'                                        ,'-','tt')
-          call ncinfo(nctname(cnt + idn_cl_sa     ,:),'dn_cl_sa'      , 'change in n_cl due to saturation adjustment'                  ,'-','tt')
-          call ncinfo(nctname(cnt + iret_cc       ,:),'ret_cc'        , 'recovery of ccn'                                              ,'-','tt')
+          call ncinfo(tmp4_t, 'dn_cl_nu'      , 'droplet nucleation rate'                                      ,'-','tt'); nctname(cnt + idn_cl_nu     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_inu'     , 'ice nucleation rate'                                          ,'-','tt'); nctname(cnt + idn_ci_inu    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_au'      , 'change in number of cloud droplets due to autoconversion'     ,'-','tt'); nctname(cnt + idn_cl_au     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_au'      , 'change in mass of raindrops due to autoconversion'            ,'-','tt'); nctname(cnt + idq_hr_au     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_au'      , 'change in number of raindrops due to autoconversion'          ,'-','tt'); nctname(cnt + idn_hr_au     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_ac'      , 'change in mass of raindrops due to accretion'                 ,'-','tt'); nctname(cnt + idq_hr_ac     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_ac'      , 'change in number of cloud droplets due to accretion'          ,'-','tt'); nctname(cnt + idn_cl_ac     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_br'      , 'change in number of raindrops due to breakup'                 ,'-','tt'); nctname(cnt + idn_hr_br     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_sc'      , 'change in number of raindrops due to self-collection'         ,'-','tt'); nctname(cnt + idn_hr_sc     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_ev'      , 'change in mass of raindrops due to evaporation'               ,'-','tt'); nctname(cnt + idq_hr_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_ev'      , 'change in number of raindrops due to evaporation'             ,'-','tt'); nctname(cnt + idn_hr_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_dep'     , 'deposition rate for clouds'                                   ,'-','tt'); nctname(cnt + idq_ci_dep    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_dep'     , 'deposition rate for snow'                                     ,'-','tt'); nctname(cnt + idq_hs_dep    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hg_dep'     , 'deposition rate for graupel'                                  ,'-','tt'); nctname(cnt + idq_hg_dep    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_rime'    , 'riming growth of ice'                                         ,'-','tt'); nctname(cnt + idq_ci_rime   ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_rime_ci' , ' - and impact on n_cl'                                        ,'-','tt'); nctname(cnt + idn_cl_rime_ci,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_rime'    , 'riming growth of snow'                                        ,'-','tt'); nctname(cnt + idq_hs_rime   ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_rime_hs' , ' - and impact on n_cl'                                        ,'-','tt'); nctname(cnt + idn_cl_rime_hs,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hg_rime'    , 'riming growth for graupel'                                    ,'-','tt'); nctname(cnt + idq_hg_rime   ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_rime_hg' , ' - and impact on n_cl'                                        ,'-','tt'); nctname(cnt + idn_cl_rime_hg,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hshr_rime'  , 'riming growth for snow with rain'                             ,'-','tt'); nctname(cnt + idq_hshr_rime ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_rime_hs' , ' - and impact on n_hr'                                        ,'-','tt'); nctname(cnt + idn_hr_rime_hs,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hghr_rime'  , 'riming growth for graupel with rain'                          ,'-','tt'); nctname(cnt + idq_hghr_rime ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_rime_hg' , ' - and impact on n_hr'                                        ,'-','tt'); nctname(cnt + idn_hr_rime_hg,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_rime_ri' , 'rain loss from riming of ice+rain->gr'                        ,'-','tt'); nctname(cnt + idq_hr_rime_ri,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_rime_ri' , 'ice loss from riming of ice+rain->gr'                         ,'-','tt'); nctname(cnt + idq_ci_rime_ri,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_rime_ri' , 'ice number loss from riming of ice+rain->gr'                  ,'-','tt'); nctname(cnt + idn_ci_rime_ri,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_rime_ri' , 'rain number loss from riming of ice+rain->gr'                 ,'-','tt'); nctname(cnt + idn_hr_rime_ri,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_col_rs'  , 'rain loss from riming of ice+snow->gr'                        ,'-','tt'); nctname(cnt + idq_hr_col_rs ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_col_rs'  , 'rain number loss from riming of ice+snow->gr'                 ,'-','tt'); nctname(cnt + idq_hs_col_rs ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_col_rs'  , 'snow loss from riming of ice+snow->gr'                        ,'-','tt'); nctname(cnt + idn_hr_col_rs ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_col_rs'  , 'snow number loss from riming of ice+snow->gr'                 ,'-','tt'); nctname(cnt + idn_hs_col_rs ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_col_ri'  , 'rain loss from riming of ice+rain->gr'                        ,'-','tt'); nctname(cnt + idq_hr_col_ri ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_col_ri'  , 'ice loss from riming of ice+rain->gr'                         ,'-','tt'); nctname(cnt + idq_ci_col_ri ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_col_ri'  , 'ice number loss from riming of ice+rain->gr'                  ,'-','tt'); nctname(cnt + idn_ci_col_ri ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_col_ri'  , 'rain number loss from riming of ice+rain->gr'                 ,'-','tt'); nctname(cnt + idn_hr_col_ri ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_cl_het'     , 'heterogeneou freezing of cloud water'                         ,'-','tt'); nctname(cnt + idq_cl_het    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_het'     , 'heterogeneou freezing of cloud water'                         ,'-','tt'); nctname(cnt + idn_cl_het    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_het'     , 'heterogeneou freezing of raindrops'                           ,'-','tt'); nctname(cnt + idq_hr_het    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_het'     , 'heterogeneou freezing of raindrops'                           ,'-','tt'); nctname(cnt + idn_hr_het    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_cl_hom'     , 'homogeneous freezing of cloud water'                          ,'-','tt'); nctname(cnt + idq_cl_hom    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_hom'     , 'homogeneous freezing of cloud water'                          ,'-','tt'); nctname(cnt + idn_cl_hom    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_col_iis' , 'self-collection of cloud ice'                                 ,'-','tt'); nctname(cnt + idq_ci_col_iis,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_col_iis' , 'self-collection of cloud ice'                                 ,'-','tt'); nctname(cnt + idn_ci_col_iis,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_col_sss' , 'self-collection of snow'                                      ,'-','tt'); nctname(cnt + idn_hs_col_sss,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hsci_col'   , 'collection s+i - trend in q_hs'                               ,'-','tt'); nctname(cnt + idq_hsci_col  ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_col_hs'  , 'collection s+i - trend in n_ci'                               ,'-','tt'); nctname(cnt + idn_ci_col_hs ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hghs_col'   , 'collection g+s - trend in q_hg'                               ,'-','tt'); nctname(cnt + idq_hghs_col  ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_col_hg'  , 'collection g+s - trend in n_hs'                               ,'-','tt'); nctname(cnt + idn_hs_col_hg ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_cv'      , 'partial conversion ice -> graupel'                            ,'-','tt'); nctname(cnt + idq_ci_cv     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_cv'      , 'partial conversion ice -> graupel'                            ,'-','tt'); nctname(cnt + idn_ci_cv     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_cv'      , 'partial conversion snow-> graupel'                            ,'-','tt'); nctname(cnt + idq_hs_cv     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_cv'      , 'partial conversion snow-> graupel'                            ,'-','tt'); nctname(cnt + idn_hs_cv     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_sc'      , 'cloud self-collection'                                        ,'-','tt'); nctname(cnt + idn_cl_sc     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_mul'     , 'ice multiplication'                                           ,'-','tt'); nctname(cnt + idn_ci_mul    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_mul'     , 'ice multiplication'                                           ,'-','tt'); nctname(cnt + idq_ci_mul    ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_me'      , 'number tendency melting of cloud ice'                         ,'-','tt'); nctname(cnt + idn_ci_me     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_me'      , 'mass tendency melting of cloud ice'                           ,'-','tt'); nctname(cnt + idq_ci_me     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_me'      , 'number tendency melting of snow'                              ,'-','tt'); nctname(cnt + idn_hs_me     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_me'      , 'mass tendency melting of snow'                                ,'-','tt'); nctname(cnt + idq_hs_me     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hg_me'      , 'number tendency melting of graupel'                           ,'-','tt'); nctname(cnt + idn_hg_me     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hg_me'      , 'mass tendency melting of graupel'                             ,'-','tt'); nctname(cnt + idq_hg_me     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_ev'      , 'number tendency evaporation of cloud ice'                     ,'-','tt'); nctname(cnt + idn_ci_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_ev'      , 'mass tendency evaporation of cloud ice'                       ,'-','tt'); nctname(cnt + idq_ci_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_ev'      , 'number tendency evaporation of snow'                          ,'-','tt'); nctname(cnt + idn_hs_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_ev'      , 'mass tendency evaporation of snow'                            ,'-','tt'); nctname(cnt + idq_hs_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hg_ev'      , 'number tendency evaporation of graupel'                       ,'-','tt'); nctname(cnt + idn_hg_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hg_ev'      , 'mass tendency evaporation of graupel'                         ,'-','tt'); nctname(cnt + idq_hg_ev     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_eme_ic'  , 'number tendency enhanced melting of cloud ice by cloud water' ,'-','tt'); nctname(cnt + idn_ci_eme_ic ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_eme_ic'  , 'mass tendency enhanced melting of cloud ice by cloud water'   ,'-','tt'); nctname(cnt + idq_ci_eme_ic ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_eme_ri'  , 'number tendency enhanced melting of cloud ice by rain'        ,'-','tt'); nctname(cnt + idn_ci_eme_ri ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_eme_ri'  , 'mass tendency enhanced melting of cloud ice  by rain'         ,'-','tt'); nctname(cnt + idq_ci_eme_ri ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_eme_sc'  , 'number tendency enhanced melting of snow by cloud water'      ,'-','tt'); nctname(cnt + idn_hs_eme_sc ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_eme_sc'  , 'mass tendency enhanced melting of snow by cloud water'        ,'-','tt'); nctname(cnt + idq_hs_eme_sc ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_eme_rs'  , 'number tendency enhanced melting of snow by rain'             ,'-','tt'); nctname(cnt + idn_hs_eme_rs ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_eme_rs'  , 'mass tendency enhanced melting of snow by rain'               ,'-','tt'); nctname(cnt + idq_hs_eme_rs ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hg_eme_gc'  , 'number tendency enhanced melting of graupel by liquid clouds' ,'-','tt'); nctname(cnt + idn_hg_eme_gc ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hg_eme_gc'  , 'mass tendency enhanced melting of graupel by liquid clouds'   ,'-','tt'); nctname(cnt + idq_hg_eme_gc ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hg_eme_gr'  , 'number tendency enhanced melting of graupel by rain'          ,'-','tt'); nctname(cnt + idn_hg_eme_gr ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hg_eme_gr'  , 'mass tendency enhanced melting of graupel by rain'            ,'-','tt'); nctname(cnt + idq_hg_eme_gr ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_se'      , 'sedimentation for clouds water - number'                      ,'-','tt'); nctname(cnt + idn_cl_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_cl_se'      , '     -||-- mixing ration'                                     ,'-','tt'); nctname(cnt + idq_cl_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_ci_se'      , 'sedimentation for cloud ice - number'                         ,'-','tt'); nctname(cnt + idn_ci_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_ci_se'      , '      -||-- mixing ration'                                    ,'-','tt'); nctname(cnt + idq_ci_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hr_se'      , 'sedimentation for rain - number'                              ,'-','tt'); nctname(cnt + idn_hr_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hr_se'      , '      -||-- mixing ration'                                    ,'-','tt'); nctname(cnt + idq_hr_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hs_se'      , 'sedimentation for snow - number'                              ,'-','tt'); nctname(cnt + idn_hs_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hs_se'      , '      -||-- mixing ration'                                    ,'-','tt'); nctname(cnt + idq_hs_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_hg_se'      , 'sedimentation for graupel - number'                           ,'-','tt'); nctname(cnt + idn_hg_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_hg_se'      , '      -||-- mixing ration'                                    ,'-','tt'); nctname(cnt + idq_hg_se     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dq_cl_sa'      , 'saturation adjustment'                                        ,'-','tt'); nctname(cnt + idq_cl_sa     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'dn_cl_sa'      , 'change in n_cl due to saturation adjustment'                  ,'-','tt'); nctname(cnt + idn_cl_sa     ,:) = tmp4_t
+          call ncinfo(tmp4_t, 'ret_cc'        , 'recovery of ccn'                                              ,'-','tt'); nctname(cnt + iret_cc       ,:) = tmp4_t
           cnt = cnt + 93
 
           ! -- finish
@@ -506,7 +519,7 @@ subroutine initbulkmicrostat3
         endif
 
         if (l_tendencies) then
-           call writestat_nc(ncid_tends,1,nctname,(/rtimee/),nrec_tends,.true.)
+          call writestat_nc(ncid_tends,1,tnctname,(/rtimee/),nrec_tends,.true.)
           cnt = 0
           call writestat_nc(ncid_tends,1,nctname(cnt + idn_cl_nu     :cnt + idn_cl_nu     ,:),tend_fsum(idn_cl_nu     :idn_cl_nu     ,1:kmax),nrec_tends,kmax)
           call writestat_nc(ncid_tends,1,nctname(cnt + idn_ci_inu    :cnt + idn_ci_inu    ,:),tend_fsum(idn_ci_inu    :idn_ci_inu    ,1:kmax),nrec_tends,kmax)
