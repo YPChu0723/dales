@@ -123,7 +123,7 @@ subroutine initbulkmicrostat3
       idtav      = idtav_prof
       itimeav    = itimeav_prof
       if (idtav <= 0 .or. itimeav <= 0) then
-        stop 'modstat_nc dtav/timeav must be positive before microstat3 init'
+        stop 'modstat_nc idtav_prof/itimeav_prof must be positive before microstat3 init'
       end if
       tnext      = idtav   + btime
       tnextwrite = itimeav + btime
