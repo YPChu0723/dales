@@ -79,7 +79,6 @@ subroutine initbulkmicrostat3
     use modglobal, only  : ifnamopt, fname_options, cexpnr, &
          dtav_glob, timeav_glob, ladaptive, dtmax,btime,tres,checknamelisterror,kmax
     use modstat_nc, only : lnetcdf,open_nc,define_nc,ncinfo,nctiminfo,writestat_dims_nc
-    use modgenstat, only : idtav_prof=>idtav, itimeav_prof=>itimeav
     use modmicrodata3
 
     implicit none
@@ -126,11 +125,11 @@ subroutine initbulkmicrostat3
     !end if
 
     if (lnetcdf) then
-      idtav      = idtav_prof
-      itimeav    = itimeav_prof
-      tnext      = idtav   + btime
-      tnextwrite = itimeav + btime
-      nsamples = int(itimeav / idtav)
+      ! Use this module's own dtav/timeav (from NAMBULKMICROSTAT) rather than
+      ! inheriting from modgenstat, since initbulkmicrostat3 is called from
+      ! initmicrophysics (inside startup) before initgenstat has read its
+      ! namelist, leaving modgenstat's idtav/itimeav at 0 and triggering a
+      ! divide-by-zero (SIGFPE) at the nsamples calculation below.
       if (myid==0) then
 
         ! statisitcs output
