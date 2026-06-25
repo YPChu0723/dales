@@ -50,7 +50,7 @@ program DALES
   use modtimedep,        only : timedep
   use modboundary,       only : boundary, grwdamp! JvdD ,tqaver
   use modthermodynamics, only : thermodynamics
-  use modmicrophysics,   only : microphysics
+  use modmicrophysics,   only : microphysics, initmicrophysics_stat
   use modsurface,        only : surface
   use modlsm,            only : lsm
   use moddrydeposition,  only : drydep
@@ -147,6 +147,7 @@ program DALES
 !---------------------------------------------------------
   call initchecksim
   call initstat_nc   ! Should be called before stat-routines that might do netCDF
+  call initmicrophysics_stat  ! Must be after initstat_nc (may create NetCDF files)
   call inittimestat  ! Timestat must preceed all other timeseries that could write in the same netCDF file (unless stated otherwise
   call initgenstat   ! Genstat must preceed all other statistics that could write in the same netCDF file (unless stated otherwise
   !call inittilt

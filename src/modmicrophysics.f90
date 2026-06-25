@@ -57,6 +57,7 @@ module modmicrophysics
 
   public :: microphysics_read_namelist
   public :: initmicrophysics
+  public :: initmicrophysics_stat
   public :: microphysics
   public :: exitmicrophysics
 
@@ -183,6 +184,18 @@ contains
     if(laerosol) call init_aerosol()
 
   end subroutine initmicrophysics
+
+  !> Initialize statistics for the selected microphysical scheme.
+  !! Must be called after initstat_nc, as it may create NetCDF files.
+  subroutine initmicrophysics_stat()
+    use modbulkmicrostat3, only: initbulkmicrostat3
+
+    select case(imicro)
+      case(imicro_bulk3)
+        call initbulkmicrostat3
+    end select
+
+  end subroutine initmicrophysics_stat
 
   !> Do the microphysics.
   subroutine microphysics
