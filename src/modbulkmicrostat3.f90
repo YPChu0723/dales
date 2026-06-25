@@ -468,10 +468,10 @@ subroutine initbulkmicrostat3
           cnt = cnt + 11
 
           call writestat_nc(ncid_mphys,1,ncmname(cnt + 1 : cnt + 1,:),statistic_sv0_count(iq_hr : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 2 : cnt + 2,:),statistic_sv0_count(iq_cl : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 3 : cnt + 3,:),statistic_sv0_count(iq_ci : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 4 : cnt + 4,:),statistic_sv0_count(iq_hs : iq_hr,1:kmax),nrec_mphys,kmax)
-          call writestat_nc(ncid_mphys,1,ncmname(cnt + 5 : cnt + 5,:),statistic_sv0_count(iq_hg : iq_hr,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 2 : cnt + 2,:),statistic_sv0_count(iq_cl : iq_cl,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 3 : cnt + 3,:),statistic_sv0_count(iq_ci : iq_ci,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 4 : cnt + 4,:),statistic_sv0_count(iq_hs : iq_hs,1:kmax),nrec_mphys,kmax)
+          call writestat_nc(ncid_mphys,1,ncmname(cnt + 5 : cnt + 5,:),statistic_sv0_count(iq_hg : iq_hg,1:kmax),nrec_mphys,kmax)
           cnt = cnt + 5
 
           call writestat_nc(ncid_mphys,1,ncmname(cnt + in_hr : cnt + in_hr,:),statistic_sv0_csum(in_hr : in_hr,1:kmax),nrec_mphys,kmax)
