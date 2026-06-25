@@ -67,7 +67,6 @@ subroutine initbulkmicrostat3
     use modglobal, only  : ifnamopt, fname_options, cexpnr, &
          dtav_glob, timeav_glob, ladaptive, dtmax,btime,tres,checknamelisterror,kmax
     use modstat_nc, only : lnetcdf,open_nc,define_nc,ncinfo,nctiminfo,writestat_dims_nc
-    use modgenstat, only : idtav_prof=>idtav, itimeav_prof=>itimeav
     use modmicrodata3
 
     implicit none
@@ -113,11 +112,11 @@ subroutine initbulkmicrostat3
     !end if
 
     if (lnetcdf) then
-      idtav      = idtav_prof
-      itimeav    = itimeav_prof
-      tnext      = idtav   + btime
-      tnextwrite = itimeav + btime
-      nsamples = int(itimeav / idtav)
+      ! idtav      = idtav_prof
+      ! itimeav    = itimeav_prof
+      ! tnext      = idtav   + btime
+      ! tnextwrite = itimeav + btime
+      ! nsamples = int(itimeav / idtav)
       if (myid==0) then
 
         ! statisitcs output
@@ -506,7 +505,7 @@ subroutine initbulkmicrostat3
         endif
 
         if (l_tendencies) then
-           call writestat_nc(ncid_tends,1,nctname,(/rtimee/),nrec_tends,.true.)
+           call writestat_nc(ncid_tends,1,tnctname,(/rtimee/),nrec_tends,.true.)
           cnt = 0
           call writestat_nc(ncid_tends,1,nctname(cnt + idn_cl_nu     :cnt + idn_cl_nu     ,:),tend_fsum(idn_cl_nu     :idn_cl_nu     ,1:kmax),nrec_tends,kmax)
           call writestat_nc(ncid_tends,1,nctname(cnt + idn_ci_inu    :cnt + idn_ci_inu    ,:),tend_fsum(idn_ci_inu    :idn_ci_inu    ,1:kmax),nrec_tends,kmax)
