@@ -362,7 +362,6 @@ module modbulkmicro3
   precep_hr = 0.
   precep_ci = 0.
   precep_hs = 0.
-  precep_hg = 0.
 
   ! Zero the summed statistics and tendencies
   if (l_tendencies) then
