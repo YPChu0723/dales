@@ -331,7 +331,7 @@ subroutine sedim_rain3(q_hr, n_hr, q_hrp, n_hrp, precep_hr, tend)
 
   ! First time for the first k loop, go over the full column
   k_low1 = 1
-  k_high1 = k1
+  k_high1 = kmax
 
   ! The boundaries for the second k loop are extended in the first loop
   k_low2 = k1
@@ -487,7 +487,7 @@ subroutine sedim_snow3(q_hs, n_hs, q_hsp, n_hsp, precep_hs, tend)
 
   ! First time for the first k loop, go over the full column
   k_low1 = 1
-  k_high1 = k1
+  k_high1 = kmax
 
   ! The boundaries for the second k loop are extended in the first loop
   k_low2 = k1
@@ -578,7 +578,7 @@ subroutine sedim_graupel3(q_hg, n_hg, q_hgp, n_hgp, precep_hg, tend)
 
   ! First time for the first k loop, go over the full column
   k_low1 = 1
-  k_high1 = k1
+  k_high1 = kmax
 
   ! The boundaries for the second k loop are extended in the first loop
   k_low2 = k1
@@ -667,7 +667,7 @@ subroutine sedim_ice3(q_ci, n_ci, q_cip, n_cip, precep_ci, tend)
 
   ! First time for the first k loop, go over the full column
   k_low1 = 1
-  k_high1 = k1
+  k_high1 = kmax
 
   ! The boundaries for the second k loop are extended in the first loop
   k_low2 = k1
@@ -759,7 +759,7 @@ subroutine sedim_cl3(q_cl, n_cl, q_clp, n_clp, n_ccp, qtpmcr, thlpmcr, tend)
 
   ! First time for the first k loop, go over the full column
   k_low1 = 1
-  k_high1 = k1
+  k_high1 = kmax
 
   ! The boundaries for the second k loop are extended in the first loop
   k_low2 = k1

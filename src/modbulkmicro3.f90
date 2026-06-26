@@ -362,6 +362,7 @@ module modbulkmicro3
   precep_hr = 0.
   precep_ci = 0.
   precep_hs = 0.
+  precep_hg = 0.
 
   ! Zero the summed statistics and tendencies
   if (l_tendencies) then
@@ -422,7 +423,13 @@ subroutine bulkmicro3
   ! and variables as the surface (k=1) of the column
   ! real :: precep_hr,precep_ci,precep_hs,precep_hg
 
-
+  sv0_t = 0.
+  svp_t = 0.
+  svm_t = 0.
+  prg_t = 0.
+  thlp_t = 0.
+  qtp_t  = 0.
+  
   ! check if ccn and clouds were already initialised
   ! ------------------------------------------------
   if (.not. l_ccn_init) then
@@ -463,13 +470,6 @@ subroutine bulkmicro3
 
   ! Zero temporary tendency fields. These are filled for j=2:j1 in point_processes,
   ! so initialize to avoid using undefined stack values outside that range.
-  thlp_t = 0.
-  qtp_t  = 0.
-
-  ! no need to zero:
-  ! thlp_t, qtp_t      : they are set in point_processes
-  ! precep_i, precep_l : they are set at the end of the column loop
-  ! statistics and tendencies : all handled by microstat3
 
   delt = rdt / (4. - dble(rk3step))
 
@@ -500,7 +500,7 @@ subroutine bulkmicro3
   !  - Point processes at k-point
   ! ------------------------------------------------------------------
       do k=1,k1
-        call point_processes(prg_t(:,k,i,j),exnf(k),rhof(k),presf(k)         &
+        call point_processes(prg_t(:,k,i,j),exnf(k),rhof(k),presf(k),k &
                             ,sv0_t(:,k,i,j),svp_t(:,k,i,j),svm_t(:,k,i,j)    &
                             ,thlp_t(k,i,j),qtp_t(k,i,j)                      &
                             ,mphys_col(:,k), tend_col(:,k)                   )

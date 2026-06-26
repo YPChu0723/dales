@@ -72,6 +72,8 @@ module modbulkmicro3_point
   real ::   qtpmcr                    &
            ,thlpmcr
 
+  integer :: k_point = 0  !< model level index, set at entry of point_processes for debug use
+
   real, allocatable :: statistics   (:)     &
                       ,tend         (:)
 
@@ -80,15 +82,16 @@ contains
 
 ! NOTES: deposition tendencies are the tendencies after correction from cor_deposit3
 
-  subroutine point_processes(prg,exnf_k_in,rhof_k_in,presf_k_in   &
+  subroutine point_processes(prg,exnf_k_in,rhof_k_in,presf_k_in,k_in &
                             ,sv0,svp,svm,thlpmcr_out,qtpmcr_out   &
                             ,statistics_out,tend_out  )
 
-    use modglobal, only     : cp
+    use modglobal, only     : cp, rtimee
     use modmicrodata3, only : in_hr,iq_hr,in_cl,iq_cl,in_cc, &
                               in_ci,iq_ci,in_hs,iq_hs,in_hg,iq_hg
     implicit none
     real(field_r), intent(in)    :: exnf_k_in, rhof_k_in,presf_k_in
+    integer,       intent(in)    :: k_in
     real, intent(in)    :: sv0(ncols),svm(ncols),prg(nprgs)
     real, intent(inout) :: svp(ncols)
     real, intent(out)   :: thlpmcr_out,qtpmcr_out
@@ -101,8 +104,23 @@ contains
       allocate(tend(ntends))
     endif
 
+    k_point = k_in
+
     ! base variables
     tmp0 = prg(n_tmp0)
+
+    ! Guard: k1 = kmax+1 is a ghost layer with tmp0=0 (exnf(k1)=0, thl0(k1)=0).
+    ! Skip all microphysics there — no physical state exists at that level.
+    if (tmp0 <= 0.) then
+      thlpmcr_out   = 0.
+      qtpmcr_out    = 0.
+      statistics_out = 0.
+      tend_out       = 0.
+      if (allocated(statistics)) deallocate(statistics)
+      if (allocated(tend))       deallocate(tend)
+      return
+    end if
+
     qt0  = prg(n_qt0)
     ql0  = prg(n_ql0)
     esl  = prg(n_esl)
@@ -335,6 +353,14 @@ contains
 
     thlpmcr_out = thlpmcr
     qtpmcr_out = qtpmcr
+
+    ! Debug: warn if microphysics is cooling/heating a level by more than 10 K/s
+    if (abs(thlpmcr) * delt > 10.) then
+      write(6,'(a,i4,a,f8.2,5(a,es12.4))') &
+        'DEBUG large thlpmcr: k=',k_point,' t=',rtimee, &
+        ' thlpmcr=',thlpmcr,' tmp0=',tmp0,' dq_ci_dep=',dq_ci_dep, &
+        ' q_cim=',q_cim,' q_cim/delt=',q_cim/delt
+    end if
 
     if (l_statistics) then
       statistics_out = statistics
@@ -640,7 +666,7 @@ end subroutine hetfreez3
 !  following S&B
 ! ****************************************
 subroutine deposit_ice3
-  use modglobal, only : rv,rd,pi
+  use modglobal, only : rv,rd,pi,rtimee
   implicit none
 
   real :: esi
@@ -658,6 +684,13 @@ subroutine deposit_ice3
 
   ! calculating G_iv
   esi = qvsi*presf_k/(rd/rv+(1.0-rd/rv)*qvsi)
+  if (tmp0 < 150.) then
+    write(6,*) 'DEBUG: deposit_ice3: k=',k_point,' t=',rtimee, &
+               ' tmp0=',tmp0,' q_avail=',q_avail, &
+               ' qt0=',qt0,' q_cl=',q_cl,' qvsi=',qvsi, &
+               ' Si=',Si,' esi=',esi
+  end if
+
   G = (rv * tmp0) / (Dv*esi) + rlvi/(Kt*tmp0)*(rlvi/(rv*tmp0) -1.)
   G = 1./G
 
@@ -828,13 +861,21 @@ end subroutine deposit_graupel3
 !!
 !!  ************************************************************
 subroutine cor_deposit3
+  use modglobal, only : rv
   implicit none
 
   real    :: tocon,precon,cond_cf
   real    :: cor_dqci_dep,cor_dqhs_dep,cor_dqhg_dep
+  real    :: dqvsidT
 
-  ! available water vapour for deposition
-  tocon = (qt0-q_clm-qvsi)/delt
+  ! Clausius-Clapeyron denominator (same for both deposition and sublimation cases):
+  !   gammai = 1 + (rlvi/cp_exnf_k) * dqvsi/dT
+  ! Accounts for the fact that phase change shifts T and hence qvsi, so the
+  ! air reaches saturation sooner than the raw vapour deficit alone implies.
+  dqvsidT = rlvi * qvsi / (rv * tmp0**2)
+
+  ! available water vapour for deposition, temperature-feedback corrected
+  tocon = (qt0-q_clm-qvsi) / delt / (1.0 + (rlvi/cp_exnf_k) * dqvsidT)
 
   ! consumption of water vapour calculated by nucleation and deposition processes
   precon = dq_ci_dep+dq_hs_dep+dq_hg_dep
@@ -870,6 +911,41 @@ subroutine cor_deposit3
     dq_hs_dep = dq_hs_dep + cor_dqhs_dep
     dq_hg_dep = dq_hg_dep + cor_dqhg_dep
   endif
+
+  ! The saturation-adjusted maximum sublimation rate is:
+  !   toevap = (qt0 - q_cl - qvsi) / delt / (1 + rlvi * dqvsi/dT / cp_exnf_k)
+  ! where dqvsi/dT = rlvi * qvsi / (rv * tmp0^2)  [Clausius-Clapeyron]
+  block
+    real :: preevap, toevap, evap_cf
+    real :: cor_sub_ci, cor_sub_hs, cor_sub_hg
+
+    preevap = min(0.0,dq_ci_dep) + min(0.0,dq_hs_dep) + min(0.0,dq_hg_dep)
+
+    if (preevap < 0.0) then
+      toevap  = (qt0 - q_cl - qvsi) / delt / (1.0 + (rlvi/cp_exnf_k) * dqvsidT)
+
+      ! Only correct if we are sublimating faster than saturation-adjustment warrants
+      if (preevap < toevap) then
+        evap_cf = toevap / preevap - 1.0       ! negative, in [-1, 0]
+        evap_cf = max(-1.0, min(0.0, evap_cf))
+
+        cor_sub_ci = evap_cf * min(0.0, dq_ci_dep)  ! positive: reduce sublimation of ice
+        cor_sub_hs = evap_cf * min(0.0, dq_hs_dep)
+        cor_sub_hg = evap_cf * min(0.0, dq_hg_dep)
+
+        q_cip = q_cip + cor_sub_ci
+        q_hsp = q_hsp + cor_sub_hs
+        q_hgp = q_hgp + cor_sub_hg
+
+        qtpmcr  = qtpmcr  - cor_sub_ci - cor_sub_hs - cor_sub_hg
+        thlpmcr = thlpmcr + (rlvi/cp_exnf_k) * (cor_sub_ci + cor_sub_hs + cor_sub_hg)
+
+        dq_ci_dep = dq_ci_dep + cor_sub_ci
+        dq_hs_dep = dq_hs_dep + cor_sub_hs
+        dq_hg_dep = dq_hg_dep + cor_sub_hg
+      endif
+    endif
+  end block
   if (l_tendencies) then
     tend(idq_ci_dep) = dq_ci_dep
     tend(idq_hs_dep) = dq_hs_dep
