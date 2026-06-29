@@ -356,10 +356,11 @@ contains
 
     ! Debug: warn if microphysics is cooling/heating a level by more than 10 K/s
     if (abs(thlpmcr) * delt > 10.) then
-      write(6,'(a,i4,a,f8.2,5(a,es12.4))') &
+      write(6,'(a,i4,a,f8.2,6(a,es12.4))') &
         'DEBUG large thlpmcr: k=',k_point,' t=',rtimee, &
-        ' thlpmcr=',thlpmcr,' tmp0=',tmp0,' dq_ci_dep=',dq_ci_dep, &
-        ' q_cim=',q_cim,' q_cim/delt=',q_cim/delt
+        ' thlpmcr=',thlpmcr,' tmp0=',tmp0, &
+        ' dq_ci_dep=',dq_ci_dep,' dq_hs_dep=',dq_hs_dep,' dq_hg_dep=',dq_hg_dep, &
+        ' q_hrm/delt=',-q_hrm/delt
     end if
 
     if (l_statistics) then
@@ -2706,6 +2707,22 @@ subroutine evap_rain3
     dn_hr_ev = - n_hrm/delt
     dq_hr_ev = - q_hrm/delt
   endif
+
+  ! Saturation-adjustment limiter: evaporation should only proceed until
+  ! the air reaches liquid saturation (S=0), not beyond.
+  ! Mirrors the ice sublimation limiter in cor_deposit3.
+  if (dq_hr_ev < 0.) then
+    block
+      real :: dqvsldT, toevap_liq, ev_cf
+      dqvsldT   = rlv * qvsl / (rv * tmp0**2)
+      toevap_liq = (qt0 - q_cl - qvsl) / delt / (1.0 + (rlv/cp_exnf_k) * dqvsldT)
+      if (dq_hr_ev < toevap_liq) then
+        ev_cf    = max(-1.0, min(0.0, toevap_liq/dq_hr_ev - 1.0))
+        dn_hr_ev = dn_hr_ev + ev_cf * dn_hr_ev
+        dq_hr_ev = dq_hr_ev + ev_cf * dq_hr_ev
+      end if
+    end block
+  end if
 
   q_hrp = q_hrp + dq_hr_ev
   n_hrp = n_hrp + dn_hr_ev
