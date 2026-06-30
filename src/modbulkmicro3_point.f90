@@ -156,6 +156,33 @@ contains
     q_hsm = svm(iq_hs)
     q_hgm = svm(iq_hg)
 
+    ! -----------------------------------------------------------------------
+    ! Diagnostic checks: warn if any species has enough mass that its
+    ! mass-limited evaporation/sublimation would cause significant cooling
+    ! (> 3 K equivalent per timestep). The saturation-adjustment limiters
+    ! below should prevent the actual crash, but these prints help track
+    ! large-tendency events and identify the dominant process.
+    !
+    ! Thresholds: dthl_warn K of cooling if ALL mass sublimates/evaporates
+    !   ice/snow/graupel sublimation: rlvi/cp * q_xm
+    !   rain evaporation:             rlv/cp  * q_hrm
+    !   melting-zone evaporation:     (rlv+rlme)/cp * q_xm  (same as ice)
+    ! -----------------------------------------------------------------------
+    block
+      real, parameter :: dthl_warn = 3.0   ! K threshold
+      real :: Si, Sw
+      Si = (qt0 - q_cl - qvsi) / max(qvsi, 1.e-15)
+      Sw = (qt0 - q_cl - qvsl) / max(qvsl, 1.e-15)
+      if ( (rlvi/cp_exnf_k) * (q_cim + q_hsm + q_hgm) > dthl_warn .or. &
+           (rlv /cp_exnf_k) *  q_hrm                   > dthl_warn ) then
+        write(6,'(a,i4,a,f8.2,9(a,es10.3))') &
+          'CHECK point_processes: k=',k_point,' t=',rtimee, &
+          ' tmp0=',tmp0,' Si=',Si,' Sw=',Sw, &
+          ' q_cim=',q_cim,' q_hsm=',q_hsm,' q_hgm=',q_hgm, &
+          ' q_hrm=',q_hrm,' qvsi=',qvsi,' qvsl=',qvsl
+      end if
+    end block
+
     n_ccp  = svp(in_cc)
     n_clp  = svp(in_cl)
     n_cip  = svp(in_ci)
@@ -2270,7 +2297,7 @@ end subroutine conv_partial3
 !
 ! ***************************************************************
 subroutine evapmelting3
-  use modglobal, only : rlv
+  use modglobal, only : rlv, rv
   implicit none
 
   real :: dn_ci_me = 0.   !< number tendency melting of cloud ice
@@ -2307,7 +2334,6 @@ subroutine evapmelting3
 
     ! transfomed to water vapour
     qtpmcr = qtpmcr - dq_ci_ev
-    ! and heat production : heat spent on melting and evaporation - done lower
   endif
 
   ! snow
@@ -2326,7 +2352,6 @@ subroutine evapmelting3
 
     ! transfomed to water vapour
     qtpmcr = qtpmcr-dq_hs_ev
-    ! and heat production : heat spent on melting and evaporation - done lower
   endif
 
   ! graupel
@@ -2345,14 +2370,53 @@ subroutine evapmelting3
 
     ! transfomed to water vapour
     qtpmcr = qtpmcr-dq_hg_ev
-
-    ! and heat production : heat spent on melting and evaporation - done lower
-    !  - melting goes to rain
-    !  - evaporation goes water vapour
-    thlpmcr = thlpmcr +                                       &
-              (rlme/cp_exnf_k)*(dq_ci_me+dq_hs_me+dq_hg_me) + &
-        ((rlv+rlme)/cp_exnf_k)*(dq_ci_ev+dq_hs_ev+dq_hg_ev)
   endif
+
+  ! Heat: melting absorbs rlme; evaporation of melting particles absorbs rlv+rlme.
+  ! Done unconditionally for all species (was previously inside the graupel block only).
+  thlpmcr = thlpmcr +                                       &
+            (rlme/cp_exnf_k)*(dq_ci_me+dq_hs_me+dq_hg_me) + &
+      ((rlv+rlme)/cp_exnf_k)*(dq_ci_ev+dq_hs_ev+dq_hg_ev)
+
+  ! Saturation-adjustment limiter for the evaporation part.
+  ! Ice particles in the melting zone (T > T_3) evaporate w.r.t. liquid saturation (qvsl).
+  ! The denominator uses (rlv+rlme) because evaporation of melting ice absorbs both
+  ! the heat of vaporisation and the heat of fusion.
+  block
+    real :: preevap, toevap, ev_cf, dqvsldT_liq
+    real :: cor_ev_ci, cor_ev_hs, cor_ev_hg
+
+    preevap = min(0.,dq_ci_ev) + min(0.,dq_hs_ev) + min(0.,dq_hg_ev)
+
+    if (preevap < 0.) then
+      dqvsldT_liq = rlv * qvsl / (rv * tmp0**2)
+      toevap = (qt0 - q_cl - qvsl) / delt / (1.0 + ((rlv+rlme)/cp_exnf_k) * dqvsldT_liq)
+
+      if (preevap < toevap) then
+        ev_cf = max(-1.0, min(0.0, toevap/preevap - 1.0))
+
+        cor_ev_ci = ev_cf * min(0., dq_ci_ev)
+        cor_ev_hs = ev_cf * min(0., dq_hs_ev)
+        cor_ev_hg = ev_cf * min(0., dq_hg_ev)
+
+        q_cip = q_cip + cor_ev_ci
+        q_hsp = q_hsp + cor_ev_hs
+        q_hgp = q_hgp + cor_ev_hg
+
+        ! Number correction proportional to mass correction
+        if (dq_ci_ev < 0.) n_cip = n_cip + cor_ev_ci * dn_ci_ev/dq_ci_ev
+        if (dq_hs_ev < 0.) n_hsp = n_hsp + cor_ev_hs * dn_hs_ev/dq_hs_ev
+        if (dq_hg_ev < 0.) n_hgp = n_hgp + cor_ev_hg * dn_hg_ev/dq_hg_ev
+
+        qtpmcr  = qtpmcr  - cor_ev_ci - cor_ev_hs - cor_ev_hg
+        thlpmcr = thlpmcr + ((rlv+rlme)/cp_exnf_k) * (cor_ev_ci + cor_ev_hs + cor_ev_hg)
+
+        dq_ci_ev = dq_ci_ev + cor_ev_ci
+        dq_hs_ev = dq_hs_ev + cor_ev_hs
+        dq_hg_ev = dq_hg_ev + cor_ev_hg
+      end if
+    end if
+  end block
 
   if (l_tendencies) then
     tend(idn_ci_me) =  dn_ci_me
