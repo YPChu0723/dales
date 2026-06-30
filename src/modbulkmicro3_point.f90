@@ -86,9 +86,9 @@ contains
                             ,sv0,svp,svm,thlpmcr_out,qtpmcr_out   &
                             ,statistics_out,tend_out  )
 
-    use modglobal, only     : cp, rtimee
+    use modglobal, only     : cp, rtimee, rlv
     use modmicrodata3, only : in_hr,iq_hr,in_cl,iq_cl,in_cc, &
-                              in_ci,iq_ci,in_hs,iq_hs,in_hg,iq_hg
+                              in_ci,iq_ci,in_hs,iq_hs,in_hg,iq_hg, rlvi
     implicit none
     real(field_r), intent(in)    :: exnf_k_in, rhof_k_in,presf_k_in
     integer,       intent(in)    :: k_in
