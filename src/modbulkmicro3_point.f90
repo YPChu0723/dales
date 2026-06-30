@@ -901,9 +901,8 @@ subroutine cor_deposit3
   ! Accounts for the fact that phase change shifts T and hence qvsi, so the
   ! air reaches saturation sooner than the raw vapour deficit alone implies.
   dqvsidT = rlvi * qvsi / (rv * tmp0**2)
-
-  ! available water vapour for deposition, temperature-feedback corrected
-  tocon = (qt0-q_clm-qvsi) / delt / (1.0 + (rlvi/cp_exnf_k) * dqvsidT)
+  tocon = (qt0 - (q_clm + delt*q_clp) - qvsi) / delt / (1.0 + (rlvi/cp_exnf_k) * dqvsidT)
+  tocon = max(0., tocon)
 
   ! consumption of water vapour calculated by nucleation and deposition processes
   precon = dq_ci_dep+dq_hs_dep+dq_hg_dep
@@ -950,7 +949,8 @@ subroutine cor_deposit3
     preevap = min(0.0,dq_ci_dep) + min(0.0,dq_hs_dep) + min(0.0,dq_hg_dep)
 
     if (preevap < 0.0) then
-      toevap  = (qt0 - q_cl - qvsi) / delt / (1.0 + (rlvi/cp_exnf_k) * dqvsidT)
+      toevap = (qt0 - (q_clm + delt*q_clp) - qvsi) / delt / (1.0 + (rlvi/cp_exnf_k) * dqvsidT)
+      toevap = min(0., toevap)
 
       ! Only correct if we are sublimating faster than saturation-adjustment warrants
       if (preevap < toevap) then
@@ -2390,7 +2390,8 @@ subroutine evapmelting3
 
     if (preevap < 0.) then
       dqvsldT_liq = rlv * qvsl / (rv * tmp0**2)
-      toevap = (qt0 - q_cl - qvsl) / delt / (1.0 + ((rlv+rlme)/cp_exnf_k) * dqvsldT_liq)
+      toevap = (qt0 - (q_clm+delt*q_clp) - qvsl) / delt / (1.0 + ((rlv+rlme)/cp_exnf_k) * dqvsldT_liq)
+      toevap = min(0., toevap)
 
       if (preevap < toevap) then
         ev_cf = max(-1.0, min(0.0, toevap/preevap - 1.0))
@@ -2778,8 +2779,9 @@ subroutine evap_rain3
   if (dq_hr_ev < 0.) then
     block
       real :: dqvsldT, toevap_liq, ev_cf
-      dqvsldT   = rlv * qvsl / (rv * tmp0**2)
-      toevap_liq = (qt0 - q_cl - qvsl) / delt / (1.0 + (rlv/cp_exnf_k) * dqvsldT)
+      dqvsldT    = rlv * qvsl / (rv * tmp0**2)
+      toevap_liq = (qt0 - (q_clm+delt*q_clp) - qvsl) / delt / (1.0 + (rlv/cp_exnf_k) * dqvsldT)
+      toevap_liq = min(0., toevap_liq)
       if (dq_hr_ev < toevap_liq) then
         ev_cf    = max(-1.0, min(0.0, toevap_liq/dq_hr_ev - 1.0))
         dn_hr_ev = dn_hr_ev + ev_cf * dn_hr_ev
