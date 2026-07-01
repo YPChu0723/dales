@@ -86,6 +86,7 @@ contains
                             ,sv0,svp,svm,thlpmcr_out,qtpmcr_out   &
                             ,statistics_out,tend_out  )
 
+    use modmpi, only        : myid
     use modglobal, only     : cp, rtimee, rlv
     use modmicrodata3, only : in_hr,iq_hr,in_cl,iq_cl,in_cc, &
                               in_ci,iq_ci,in_hs,iq_hs,in_hg,iq_hg, rlvi
@@ -174,11 +175,13 @@ contains
       Sw = (qt0 - q_cl - qvsl) / max(qvsl, 1.e-15)
       if ( (rlvi/cp_exnf_k) * (q_cim + q_hsm + q_hgm) > dthl_warn .or. &
            (rlv /cp_exnf_k) *  q_hrm                   > dthl_warn ) then
-        write(6,'(a,i4,a,f8.2,9(a,es10.3))') &
-          'CHECK point_processes: k=',k_point,' t=',rtimee, &
-          ' tmp0=',tmp0,' Si=',Si,' Sw=',Sw, &
-          ' q_cim=',q_cim,' q_hsm=',q_hsm,' q_hgm=',q_hgm, &
-          ' q_hrm=',q_hrm,' qvsi=',qvsi,' qvsl=',qvsl
+        if (myid==0) then
+          write(6,'(a,i4,a,f8.2,9(a,es10.3))') &
+            'CHECK point_processes: k=',k_point,' t=',rtimee, &
+            ' tmp0=',tmp0,' Si=',Si,' Sw=',Sw, &
+            ' q_cim=',q_cim,' q_hsm=',q_hsm,' q_hgm=',q_hgm, &
+            ' q_hrm=',q_hrm,' qvsi=',qvsi,' qvsl=',qvsl
+        end if 
       end if
     end block
 
@@ -382,11 +385,13 @@ contains
 
     ! Debug: warn if microphysics is cooling/heating a level by more than 10 K/s
     if (abs(thlpmcr) * delt > 10.) then
-      write(6,'(a,i4,a,f8.2,6(a,es12.4))') &
-        'DEBUG large thlpmcr: k=',k_point,' t=',rtimee, &
-        ' thlpmcr=',thlpmcr,' tmp0=',tmp0, &
-        ' dq_ci_dep=',dq_ci_dep,' dq_hs_dep=',dq_hs_dep,' dq_hg_dep=',dq_hg_dep, &
-        ' q_hrm/delt=',-q_hrm/delt
+      if (myid==0) then
+        write(6,'(a,i4,a,f8.2,6(a,es12.4))') &
+          'DEBUG large thlpmcr: k=',k_point,' t=',rtimee, &
+          ' thlpmcr=',thlpmcr,' tmp0=',tmp0, &
+          ' dq_ci_dep=',dq_ci_dep,' dq_hs_dep=',dq_hs_dep,' dq_hg_dep=',dq_hg_dep, &
+          ' q_hrm/delt=',-q_hrm/delt
+      end if
     end if
 
     if (l_statistics) then
