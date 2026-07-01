@@ -159,17 +159,16 @@ contains
     ! -----------------------------------------------------------------------
     ! Diagnostic checks: warn if any species has enough mass that its
     ! mass-limited evaporation/sublimation would cause significant cooling
-    ! (> 3 K equivalent per timestep). The saturation-adjustment limiters
+    ! (> dthl_warn K equivalent per timestep). The saturation-adjustment limiters
     ! below should prevent the actual crash, but these prints help track
     ! large-tendency events and identify the dominant process.
     !
-    ! Thresholds: dthl_warn K of cooling if ALL mass sublimates/evaporates
-    !   ice/snow/graupel sublimation: rlvi/cp * q_xm
-    !   rain evaporation:             rlv/cp  * q_hrm
-    !   melting-zone evaporation:     (rlv+rlme)/cp * q_xm  (same as ice)
+    ! NOTE: threshold of 8K is chosen to be above the physical sublimation response
+    ! in highly subsaturated conditions (Si~-1 → ~5K/step). Only catch values that
+    ! significantly exceed what the saturation-adjustment limiter would allow.
     ! -----------------------------------------------------------------------
     block
-      real, parameter :: dthl_warn = 3.0   ! K threshold
+      real, parameter :: dthl_warn = 8.0   ! K threshold (was 3K, too noisy)
       real :: Si, Sw
       Si = (qt0 - q_cl - qvsi) / max(qvsi, 1.e-15)
       Sw = (qt0 - q_cl - qvsl) / max(qvsl, 1.e-15)
