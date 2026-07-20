@@ -61,7 +61,7 @@ save
       ! Format of input files
       integer, parameter :: input_ascii = 1      !< Classic DALES ASCII input
       integer, parameter :: input_netcdf = 2     !< NetCDF input
-      integer            :: iinput = input_ascii !< Selected input format
+      integer            :: iinput = input_netcdf !< Selected input format
 
       logical :: llsadv   = .false. !<  switch for large scale forcings
       integer :: ntimedep = 100     !< maximum number of time points for time-dependent forcings
